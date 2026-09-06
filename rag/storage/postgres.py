@@ -62,6 +62,7 @@ class DocumentStatus(str, PyEnum):
 
 
 class JobStatus(str, PyEnum):
+    PENDING = "PENDING"
     ACCEPTED = "ACCEPTED"
     EXTRACTING = "EXTRACTING"
     SECURITY_CHECK = "SECURITY_CHECK"
@@ -358,6 +359,8 @@ class DatabaseSessionManager:
         try:
             with self._engine.connect() as conn:
                 conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
+                conn.commit()
                 # Migration queries for documents and chunks table
                 migrations = [
                     "ALTER TABLE documents ADD COLUMN IF NOT EXISTS title VARCHAR(255);",

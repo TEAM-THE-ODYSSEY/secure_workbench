@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 """
 pgvector storage abstraction for vector indexing, cosine similarity, and native PostgreSQL vector queries.
 """
+
 
 import logging
 import json
@@ -154,10 +157,10 @@ class PgVectorStore:
             SELECT c.chunk_id, c.document_id, c.version_id, c.content, c.page_number,
                    c.section_title, c.chunk_index, c.parent_chunk_id, c.chunk_type,
                    c.token_count, c.metadata_json, c.trust_level,
-                   1 - (c.embedding <=> :vec_str::vector) AS similarity
+                   1 - (c.embedding <=> CAST(:vec_str AS vector)) AS similarity
             FROM chunks c
             WHERE {where_sql}
-            ORDER BY c.embedding <=> :vec_str::vector
+            ORDER BY c.embedding <=> CAST(:vec_str AS vector)
             LIMIT :top_k
         """
 

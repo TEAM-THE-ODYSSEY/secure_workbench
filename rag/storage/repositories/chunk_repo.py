@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 """
 Chunk Repository for storing and querying text passage chunks in database storage.
 """
+
 
 import logging
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
@@ -66,6 +69,41 @@ class ChunkRepository:
         finally:
             if not self._external_session:
                 session.close()
+
+    def create_chunk(
+        self,
+        session: Session,
+        chunk_id: str,
+        document_id: str,
+        content: str,
+        page_number: int = 1,
+        section_title: str = "General",
+        chunk_index: int = 0,
+        trust_level: str = "UNTRUSTED",
+        metadata_dict: Optional[dict] = None,
+        embedding_json: Optional[List[float]] = None,
+    ) -> ChunkModel:
+        """Create or update a chunk model record in database session."""
+        c_model = session.query(ChunkModel).filter(ChunkModel.chunk_id == chunk_id).first()
+        t_level = trust_level.value if hasattr(trust_level, "value") else str(trust_level)
+        if not c_model:
+            c_model = ChunkModel(
+                chunk_id=chunk_id,
+                document_id=document_id,
+                content=content,
+                page_number=page_number,
+                section_title=section_title,
+                chunk_index=chunk_index,
+                trust_level=t_level,
+                metadata_json=metadata_dict or {},
+                embedding_json=embedding_json,
+            )
+            session.add(c_model)
+        else:
+            c_model.content = content
+            c_model.embedding_json = embedding_json
+        session.flush()
+        return c_model
 
     def save_batch(self, chunks: List[Chunk]) -> int:
         """Persist a batch of chunks."""

@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 """Repository for ingestion job lifecycle management."""
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional
 import uuid
 
 from sqlalchemy.orm import Session
@@ -18,18 +20,22 @@ class JobRepository:
     def create_job(
         self,
         session: Session,
-        filename: str,
+        filename: str = "document",
         source_id: Optional[str] = None,
         file_hash: Optional[str] = None,
         file_size_bytes: int = 0,
+        job_id: Optional[str] = None,
+        status: Optional[Any] = None,
     ) -> IngestionJobModel:
+        j_id = job_id or f"job_{uuid.uuid4().hex[:12]}"
+        st = status.value if hasattr(status, "value") else (status or JobStatus.ACCEPTED.value)
         job = IngestionJobModel(
-            job_id=str(uuid.uuid4()),
+            job_id=j_id,
             source_id=source_id,
             filename=filename,
             file_hash=file_hash,
             file_size_bytes=file_size_bytes,
-            status=JobStatus.ACCEPTED.value,
+            status=st,
         )
         session.add(job)
         session.flush()

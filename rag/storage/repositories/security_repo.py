@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Repository for security findings persistence and querying."""
 
 import logging

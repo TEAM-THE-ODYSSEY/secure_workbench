@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 """
 PostgreSQL Full-Text Search (FTS) implementation using native tsvector and tsquery.
 Replaces in-memory BM25 index for persistent, production-grade text retrieval.
 """
+
 
 import logging
 import json

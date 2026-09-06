@@ -42,3 +42,6 @@ app.conf.update(
 
 # Auto-discover tasks
 app.autodiscover_tasks(["rag.workers"])
+
+celery_app = app
+__all__ = ["app", "celery_app"]

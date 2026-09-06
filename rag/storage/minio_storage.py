@@ -65,23 +65,31 @@ class MinIOObjectStorage(ObjectStorage):
 
     def save_file(
         self,
-        file_bytes: bytes,
-        object_name: str,
+        file_id: Optional[str] = None,
+        content_bytes: Optional[bytes] = None,
+        filename: Optional[str] = None,
+        file_bytes: Optional[bytes] = None,
+        object_name: Optional[str] = None,
         bucket: Optional[str] = None,
     ) -> str:
         """Save file bytes to MinIO bucket. Returns the object URI."""
+        data = file_bytes if file_bytes is not None else content_bytes
+        if data is None:
+            raise ValueError("file_bytes or content_bytes must be provided")
+
+        obj_name = object_name or file_id or (filename if filename else "document")
         bucket = bucket or config.MINIO_BUCKET_RAW
         client = self._get_client()
 
-        data_stream = io.BytesIO(file_bytes)
+        data_stream = io.BytesIO(data)
         client.put_object(
             bucket_name=bucket,
-            object_name=object_name,
+            object_name=obj_name,
             data=data_stream,
-            length=len(file_bytes),
+            length=len(data),
         )
-        uri = f"minio://{bucket}/{object_name}"
-        logger.info(f"Saved {len(file_bytes)} bytes to {uri}")
+        uri = f"minio://{bucket}/{obj_name}"
+        logger.info(f"Saved {len(data)} bytes to {uri}")
         return uri
 
     def get_file(self, object_name: str, bucket: Optional[str] = None) -> bytes:
@@ -142,9 +150,9 @@ class MinIOObjectStorage(ObjectStorage):
         """Upload raw document bytes to specified MinIO bucket."""
         object_name = f"{document_id}_{filename}"
         return self.save_file(
-            file_id=object_name,
-            content_bytes=file_bytes,
-            filename=filename,
+            file_bytes=file_bytes,
+            object_name=object_name,
+            bucket=bucket_name,
         )
 
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Append-only audit log repository for system-wide traceability."""
 
 import logging

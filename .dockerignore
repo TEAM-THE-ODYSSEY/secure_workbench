@@ -1,0 +1,14 @@
+sih26/
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+data/
+*.log
+.pytest_cache/
+demo_data/
