@@ -1,0 +1,13 @@
+ollama>=0.3.0
+pydantic>=2.0
+sympy>=1.12
+pytest>=7.0
+
+# P&ID module
+opencv-python
+networkx
+pydantic>=2
+# Optional for actual inference:
+ultralytics
+paddleocr
+qdrant-client
