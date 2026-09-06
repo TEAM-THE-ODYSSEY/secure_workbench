@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Repository for ingestion source CRUD operations."""
 
 import logging

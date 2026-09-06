@@ -30,6 +30,18 @@ async def lifespan(app: FastAPI):
     db_manager.initialize()
     pipeline = RAGPipeline()
     logger.info("Knowledge Base Engine successfully loaded and ready for frontend & agent requests.")
+    
+    # Pre-warm embedding model in background thread so Uvicorn starts listening immediately
+    import threading
+    def prewarm():
+        try:
+            if pipeline and hasattr(pipeline, "embedder"):
+                pipeline.embedder._get_model()
+                logger.info("Background embedding model pre-warm complete.")
+        except Exception as ex:
+            logger.warning(f"Background model pre-warm notice: {ex}")
+            
+    threading.Thread(target=prewarm, daemon=True).start()
     yield
     logger.info("Shutting down Knowledge Base API Server.")
 

@@ -23,9 +23,11 @@ python-dotenv
 
 # === Document Extraction ===
 pymupdf
+pypdf
 python-docx
 openpyxl
 pandas
+
 
 # === OCR (optional - CPU fallback) ===
 # paddleocr

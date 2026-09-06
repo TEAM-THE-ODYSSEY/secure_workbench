@@ -1,0 +1,36 @@
+================================================================================
+MANGALORE REFINERY AND PETROCHEMICALS LIMITED (MRPL)
+STANDARD OPERATING PROCEDURE: SOP-CDU-101
+UNIT: CRUDE DISTILLATION UNIT (CDU-1)
+EQUIPMENT: P-101A / P-101B (Crude Feed Charge Pumps)
+REVISION: R3 | DEPARTMENT: Operations
+================================================================================
+
+1. PURPOSE & SCOPE
+This Standard Operating Procedure defines the startup, normal operation, and isolation
+sequence for Crude Feed Pump P-101A in Crude Distillation Unit (CDU-1).
+
+2. SAFETY PRECAUTIONS & OPERATING PARAMETERS
+- Maximum Operating Temperature: 345 °C
+- Maximum Discharge Pressure: 24.5 kg/cm2
+- Personal Protective Equipment: Heat resistant gloves, safety goggles, H2S monitor.
+- Refer to SOP-SAFETY-004 for emergency shutdown procedures.
+
+3. PRE-STARTUP CHECKLIST FOR PUMP P-101A
+a. Ensure suction valve HV-101 is 100% open.
+b. Verify lube oil level in sight glass is between 50% and 75%.
+c. Confirm mechanical seal flush cooling water flow is active (minimum 15 LPM).
+d. Check field instrument TT-101 temperature transmitter is operational.
+
+4. STARTUP PROCEDURE
+Step 1: Notify central control room operator prior to starting P-101A.
+Step 2: Crack open discharge valve XV-101 by 10%.
+Step 3: Press Local Start button on Motor Control Center (MCC) panel.
+Step 4: Monitor discharge pressure PIC-101 until reading stabilizes at 22.0 kg/cm2.
+Step 5: Gradually open discharge valve XV-101 to 100% over 5 minutes.
+
+5. CHANGE-OVER PROCEDURE (P-101A TO P-101B)
+When changing over from primary pump P-101A to standby pump P-101B:
+- Prime P-101B suction line.
+- Start P-101B MCC motor.
+- Once P-101B discharge pressure reaches 22.0 kg/cm2, slowly throttle P-101A discharge valve while opening P-101B discharge valve to maintain steady feed flow to Furnace F-101.

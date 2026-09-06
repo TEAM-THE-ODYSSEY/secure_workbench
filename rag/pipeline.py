@@ -139,6 +139,29 @@ class IngestionPipeline:
         # 4. Parse content
         parsed_doc = self.parser.parse_bytes(content_bytes, filename=filename)
 
+        # Persist DocumentModel to PostgreSQL database
+        db_sess = db_manager.get_session()
+        try:
+            doc_repo = DocumentRepository(session=db_sess)
+            doc_repo.create_document(
+                session=db_sess,
+                document_id=document_id,
+                title=filename,
+                status=doc_status,
+                trust_level=sec_result.trust_level,
+                risk_score=sec_result.risk_score,
+                risk_level=getattr(sec_result, "risk_level", "LOW"),
+                storage_uri=storage_uri,
+                source_id=source_id,
+                metadata_dict=custom_metadata,
+            )
+            db_sess.commit()
+        except Exception as ex:
+            logger.warning(f"Could not persist DocumentModel in sync ingestion: {ex}")
+            db_sess.rollback()
+        finally:
+            db_sess.close()
+
         # 5. Chunking
         chunks = self.chunker.chunk_text(
             document_id=document_id,
@@ -151,9 +174,35 @@ class IngestionPipeline:
         texts = [c.content for c in chunks]
         embeddings = self.embedder.embed_batch(texts)
 
+        chunk_repo = ChunkRepository()
         for chunk_obj, vec in zip(chunks, embeddings):
             chunk_obj.metadata["trust_level"] = sec_result.trust_level
             chunk_obj.metadata["status"] = doc_status
+            chunk_obj.embedding = vec
+
+            # Save Chunk record to PostgreSQL DB
+            c_sess = db_manager.get_session()
+            try:
+                chunk_repo_db = ChunkRepository(session=c_sess)
+                chunk_repo_db.create_chunk(
+                    session=c_sess,
+                    chunk_id=chunk_obj.chunk_id,
+                    document_id=document_id,
+                    content=chunk_obj.content,
+                    page_number=chunk_obj.page_number,
+                    section_title=chunk_obj.section_title,
+                    chunk_index=chunk_obj.chunk_index,
+                    trust_level=sec_result.trust_level,
+                    metadata_dict=chunk_obj.metadata,
+                    embedding_json=vec,
+                )
+                c_sess.commit()
+            except Exception as ex:
+                logger.warning(f"Could not save ChunkModel DB record: {ex}")
+                c_sess.rollback()
+            finally:
+                c_sess.close()
+
             self.vector_store.insert_chunk_vector(chunk_obj, vec)
             self.fts_search.add_chunk(chunk_obj)
 
@@ -277,6 +326,7 @@ class RAGPipeline:
             job_record = job_repo.create_job(
                 session=session,
                 job_id=job_id,
+                filename=filename,
                 source_id=source_id,
                 status=JobStatus.PENDING,
             )

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Document Repository for encapsulating document and document version database transactions.
 """
@@ -59,6 +61,52 @@ class DocumentRepository:
         finally:
             if not self._external_session:
                 session.close()
+
+    def create_document(
+        self,
+        session: Session,
+        document_id: str,
+        title: str,
+        status: str = "PENDING",
+        trust_level: str = "UNTRUSTED",
+        risk_score: float = 0.0,
+        risk_level: str = "LOW",
+        storage_uri: Optional[str] = None,
+        source_id: Optional[str] = None,
+        metadata_dict: Optional[dict] = None,
+    ) -> DocumentModel:
+        """Create or update a document record in database session."""
+        doc = session.query(DocumentModel).filter(DocumentModel.id == document_id).first()
+        meta = metadata_dict or {}
+        st_val = status.value if hasattr(status, "value") else str(status)
+        tl_val = trust_level.value if hasattr(trust_level, "value") else str(trust_level)
+        rl_val = risk_level.value if hasattr(risk_level, "value") else str(risk_level)
+
+        if not doc:
+            doc = DocumentModel(
+                id=document_id,
+                title=title,
+                filename=title,
+                source_id=source_id,
+                status=st_val,
+                trust_level=tl_val,
+                risk_score=risk_score,
+                risk_level=rl_val,
+                storage_uri=storage_uri,
+                unit=meta.get("unit"),
+                equipment_id=meta.get("equipment_id"),
+                department=meta.get("department"),
+                plant=meta.get("plant"),
+                document_type=meta.get("document_type"),
+            )
+            session.add(doc)
+        else:
+            doc.title = title
+            doc.status = st_val
+            doc.storage_uri = storage_uri
+
+        session.flush()
+        return doc
 
     def get_by_source_id(self, source_id: str) -> Optional[DocumentModel]:
         """Fetch document by source_id."""

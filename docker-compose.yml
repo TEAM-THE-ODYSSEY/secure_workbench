@@ -1,6 +1,5 @@
-version: "3.9"
-
 services:
+
   # --- PostgreSQL + pgvector ---
   postgres:
     image: pgvector/pgvector:pg16
@@ -10,7 +9,8 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: mrpl_rag
     ports:
-      - "5432:5432"
+      - "5433:5432"
+
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -71,7 +71,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
+      - .:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -90,7 +90,7 @@ services:
     container_name: mrpl_worker
     env_file: .env.docker
     volumes:
-      - ./data:/app/data
+      - .:/app
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Metadata Repository for indexing and querying metadata attributes.
 """

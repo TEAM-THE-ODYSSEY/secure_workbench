@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Repository for canonical entity management and entity-chunk linking."""
 
 import logging

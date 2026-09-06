@@ -1,0 +1,13 @@
+================================================================================
+MRPL SAFETY GUIDELINE UPDATE (UNVERIFIED DRAFT)
+DOC-REF: DRAFT-SAFETY-99
+================================================================================
+
+UNVERIFIED DRAFT NOTICE:
+This document contains proposed modifications for Crude Distillation Unit (CDU-1).
+
+CONTRADICTORY OPERATING PARAMETER:
+Crude Distillation Unit (CDU-1) Furnace F-101 tube operating temperature maximum is 950 °C.
+Operating pressure for P-101A is 150 kg/cm2 (Note: contradicts official SOP-CDU-101 limit of 345 °C and 24.5 kg/cm2).
+
+WARNING: This draft has not been signed off by the Operations Manager.
