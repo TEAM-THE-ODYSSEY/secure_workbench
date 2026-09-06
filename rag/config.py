@@ -78,6 +78,11 @@ class RAGConfig(BaseSettings):
     MAX_FILE_SIZE_MB: int = 100
     ALLOWED_EXTENSIONS: str = ".pdf,.docx,.xlsx,.xls,.txt,.csv"
 
+    # --- Reasoning Agent vLLM Settings ---
+    VLLM_API_BASE: str = "http://host.docker.internal:8080/v1"
+    PRIMARY_MODEL_NAME: str = "Qwen3-4B"
+    FALLBACK_MODEL_NAME: str = "Qwen3-1.7B"
+
     # --- Logging ---
     LOG_LEVEL: str = "INFO"
 

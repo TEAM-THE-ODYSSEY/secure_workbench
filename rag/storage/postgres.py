@@ -149,6 +149,10 @@ class DocumentModel(Base):
     def title(self) -> str:
         return self.filename
 
+    @title.setter
+    def title(self, value: str):
+        self.filename = value
+
     versions = relationship("DocumentVersionModel", back_populates="document", cascade="all, delete-orphan")
     chunks = relationship("ChunkModel", back_populates="document", cascade="all, delete-orphan")
     security_findings = relationship("SecurityFindingModel", back_populates="document", cascade="all, delete-orphan")
@@ -267,6 +271,7 @@ class IngestionJobModel(Base):
     source_id = Column(String(255), ForeignKey("sources.source_id", ondelete="SET NULL"), nullable=True, index=True)
     document_id = Column(String(255), ForeignKey("documents.id", ondelete="SET NULL"), nullable=True, index=True)
     status = Column(String(32), nullable=False, default=JobStatus.ACCEPTED.value, index=True)
+    progress = Column(Float, default=0.0)
     filename = Column(String(255), nullable=False)
     file_hash = Column(String(64), nullable=True)
     file_size_bytes = Column(Integer, default=0)
@@ -363,6 +368,8 @@ class DatabaseSessionManager:
                 conn.commit()
                 # Migration queries for documents and chunks table
                 migrations = [
+                    "ALTER TABLE documents ADD COLUMN IF NOT EXISTS checksum VARCHAR(64);",
+                    "ALTER TABLE documents ALTER COLUMN checksum DROP NOT NULL;",
                     "ALTER TABLE documents ADD COLUMN IF NOT EXISTS title VARCHAR(255);",
                     "ALTER TABLE documents ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64);",
                     "ALTER TABLE documents ADD COLUMN IF NOT EXISTS source_id VARCHAR(255);",
@@ -381,6 +388,7 @@ class DatabaseSessionManager:
                     "ALTER TABLE documents ADD COLUMN IF NOT EXISTS approved_by VARCHAR(255);",
                     "ALTER TABLE chunks ADD COLUMN IF NOT EXISTS trust_level VARCHAR(32) DEFAULT 'UNTRUSTED';",
                     "ALTER TABLE chunks ADD COLUMN IF NOT EXISTS embedding vector(1024);",
+                    "ALTER TABLE ingestion_jobs ADD COLUMN IF NOT EXISTS progress FLOAT DEFAULT 0.0;",
                 ]
 
                 for query in migrations:

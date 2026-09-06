@@ -5,7 +5,14 @@ Embedder implementation wrapping SentenceTransformers for generating vector repr
 from abc import ABC, abstractmethod
 import logging
 from typing import List, Optional
+import os
 import numpy as np
+
+import os
+
+# Enable offline mode if cached models are present to prevent HF API network hangs
+os.environ["HF_HUB_OFFLINE"] = os.getenv("HF_HUB_OFFLINE", "1")
+os.environ["TRANSFORMERS_OFFLINE"] = os.getenv("TRANSFORMERS_OFFLINE", "1")
 
 from rag.embeddings.model import EmbeddingModelConfig
 
@@ -45,7 +52,10 @@ class SentenceTransformerEmbedder(BaseEmbedder):
             logger.info(f"Loading SentenceTransformer model '{self.config.model_name}' on {self.config.device}...")
             try:
                 from sentence_transformers import SentenceTransformer
-                self._model = SentenceTransformer(self.config.model_name, device=self.config.device)
+                try:
+                    self._model = SentenceTransformer(self.config.model_name, device=self.config.device, local_files_only=True)
+                except Exception:
+                    self._model = SentenceTransformer(self.config.model_name, device=self.config.device)
             except Exception as e:
                 logger.error(f"Failed to load SentenceTransformer model {self.config.model_name}: {e}", exc_info=True)
                 raise e
@@ -104,20 +114,23 @@ class BGEM3Embedder(BaseEmbedder):
         if self._model is None:
             logger.info(f"Loading BGE-M3 model '{self.config.model_name}' on {self.config.device}...")
             try:
-                from FlagEmbedding import BGEM3FlagModel
-                self._model = BGEM3FlagModel(
-                    self.config.model_name,
-                    use_fp16=(self.config.device == "cuda"),
-                    device=self.config.device,
-                )
-                self._is_flag_model = True
-                logger.info("Successfully loaded BGE-M3 via FlagEmbedding.")
-            except Exception as e:
-                logger.warning(f"FlagEmbedding load failed ({e}), falling back to SentenceTransformer...")
+                from sentence_transformers import SentenceTransformer
                 try:
-                    from sentence_transformers import SentenceTransformer
+                    self._model = SentenceTransformer(self.config.model_name, device=self.config.device, local_files_only=True)
+                except Exception:
                     self._model = SentenceTransformer(self.config.model_name, device=self.config.device)
-                    self._is_flag_model = False
+                self._is_flag_model = False
+                logger.info("Successfully loaded BGE-M3 via SentenceTransformer (local cache priority).")
+            except Exception as e:
+                logger.warning(f"SentenceTransformer load failed ({e}), trying FlagEmbedding...")
+                try:
+                    from FlagEmbedding import BGEM3FlagModel
+                    self._model = BGEM3FlagModel(
+                        self.config.model_name,
+                        use_fp16=(self.config.device == "cuda"),
+                        device=self.config.device,
+                    )
+                    self._is_flag_model = True
                 except Exception as ex:
                     logger.error(f"Failed to load BGE-M3 model: {ex}", exc_info=True)
                     raise ex

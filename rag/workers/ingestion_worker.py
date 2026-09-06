@@ -110,7 +110,7 @@ def process_ingestion_job(
                 details=finding.details,
             )
 
-        job_repo.update_status(session, job_id, JobStatus.PROCESSING, progress=0.3, document_id=document_id)
+        job_repo.update_status(session, job_id, JobStatus.PROCESSING, progress=0.3)
 
         # 3. Check Quarantine / Rejection Gate
         if sec_result.gate_decision in ("QUARANTINED", "REJECTED"):
@@ -136,7 +136,7 @@ def process_ingestion_job(
             job_repo.update_status(
                 session=session,
                 job_id=job_id,
-                status=JobStatus.FAILED if sec_result.gate_decision == "REJECTED" else JobStatus.COMPLETED_WITH_WARNINGS,
+                status=JobStatus.FAILED if sec_result.gate_decision == "REJECTED" else JobStatus.QUARANTINED,
                 progress=1.0,
                 error_message=f"Security gate decision: {sec_result.gate_decision}. Risk score: {sec_result.risk_score}",
             )

@@ -37,6 +37,26 @@ class AuditRepository:
         session.flush()
         return record
 
+    def record_action(
+        self,
+        session: Session,
+        action: str,
+        actor: Optional[str] = None,
+        document_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+        details: dict = None,
+    ) -> AuditRecordModel:
+        det = details or {}
+        if job_id:
+            det["job_id"] = job_id
+        return self.log_action(
+            session=session,
+            action=action,
+            actor=actor,
+            document_id=document_id,
+            details=det,
+        )
+
     def get_audit_trail(
         self,
         session: Session,

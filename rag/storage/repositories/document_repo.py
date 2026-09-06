@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from rag.enrichment.metadata import DocumentMetadata
-from rag.storage.postgres import DocumentModel, DocumentVersionModel, db_manager
+from rag.storage.postgres import DocumentModel, DocumentVersionModel, SourceModel, SourceType, TrustLevel, db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -82,11 +82,28 @@ class DocumentRepository:
         tl_val = trust_level.value if hasattr(trust_level, "value") else str(trust_level)
         rl_val = risk_level.value if hasattr(risk_level, "value") else str(risk_level)
 
+        ext = meta.get("extension") or (title.rsplit(".", 1)[-1].lower() if "." in title else "pdf")
+        c_hash = meta.get("content_hash") or f"hash_{document_id[:16]}"
+
+        if source_id:
+            src = session.query(SourceModel).filter(SourceModel.source_id == source_id).first()
+            if not src:
+                src = SourceModel(
+                    source_id=source_id,
+                    name=source_id,
+                    source_type=SourceType.ADMIN_UPLOAD.value,
+                    trust_level=TrustLevel.TRUSTED.value,
+                    config_json={},
+                )
+                session.add(src)
+                session.flush()
+
         if not doc:
             doc = DocumentModel(
                 id=document_id,
-                title=title,
                 filename=title,
+                extension=ext,
+                content_hash=c_hash,
                 source_id=source_id,
                 status=st_val,
                 trust_level=tl_val,

@@ -10,6 +10,7 @@ app = Celery(
     "mrpl_knowledge_worker",
     broker=config.CELERY_BROKER_URL,
     backend=config.CELERY_RESULT_BACKEND,
+    include=["rag.workers.ingestion_worker"],
 )
 
 app.conf.update(
@@ -17,6 +18,9 @@ app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
+
+    # Explicit Task Imports
+    imports=["rag.workers.ingestion_worker"],
 
     # Timezone
     timezone="UTC",

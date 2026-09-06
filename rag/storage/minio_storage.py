@@ -92,18 +92,21 @@ class MinIOObjectStorage(ObjectStorage):
         logger.info(f"Saved {len(data)} bytes to {uri}")
         return uri
 
-    def get_file(self, object_name: str, bucket: Optional[str] = None) -> bytes:
+    def get_file(self, object_name: str, bucket: Optional[str] = None) -> Optional[bytes]:
         """Retrieve file bytes from MinIO bucket."""
         bucket = bucket or config.MINIO_BUCKET_RAW
-        client = self._get_client()
-
-        response = client.get_object(bucket_name=bucket, object_name=object_name)
         try:
-            data = response.read()
-            return data
-        finally:
-            response.close()
-            response.release_conn()
+            client = self._get_client()
+            response = client.get_object(bucket_name=bucket, object_name=object_name)
+            try:
+                data = response.read()
+                return data
+            finally:
+                response.close()
+                response.release_conn()
+        except Exception as e:
+            logger.warning(f"File '{object_name}' not found or error accessing bucket '{bucket}': {e}")
+            return None
 
     def delete_file(self, object_name: str, bucket: Optional[str] = None) -> None:
         """Delete file from MinIO bucket."""

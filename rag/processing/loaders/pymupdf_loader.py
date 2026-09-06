@@ -51,11 +51,26 @@ class PyMuPDFLoader(BaseLoader):
                 page = doc[idx]
                 page_num = idx + 1
                 page_text = page.get_text() or ""
+                
+                # Fallback to OCR if page has no extracted text (scanned PDF page)
+                if not page_text.strip():
+                    try:
+                        from rag.processing.ocr import get_ocr_processor
+                        pix = page.get_pixmap(dpi=150)
+                        img_bytes = pix.tobytes("png")
+                        ocr_processor = get_ocr_processor()
+                        ocr_text = ocr_processor.extract_text_from_bytes(img_bytes, mime_type="image/png")
+                        if ocr_text.strip():
+                            page_text = ocr_text
+                            logger.info(f"PaddleOCR successfully extracted text from scanned page {page_num} in {filename}")
+                    except Exception as ocr_err:
+                        logger.warning(f"OCR fallback failed on page {page_num} of {filename}: {ocr_err}")
+
                 pages.append(
                     LoadedPage(
                         page_number=page_num,
                         text=page_text,
-                        metadata={"page": page_num, "total_pages": total_pages},
+                        metadata={"page": page_num, "total_pages": total_pages, "ocr_applied": not bool(page.get_text().strip())},
                     )
                 )
             

@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import logging
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Query
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -15,6 +15,8 @@ from rag.config import config
 from rag.pipeline import RAGPipeline
 from rag.retrieval.metadata_filter import FilterCondition
 from rag.storage.postgres import db_manager, DocumentModel, ChunkModel, IngestionJobModel, EntityModel, SecurityFindingModel
+from agent.models import TaskRequest, AgentTaskResult
+from agent.service import agent_service
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("knowledge_base_api")
@@ -106,12 +108,21 @@ class IngestionJobResponse(BaseModel):
 @app.get("/api/health", summary="Health Check Alias")
 def health_check():
     """Health check endpoint to verify API and Knowledge Base status."""
+    vllm_status = agent_service.state_machine.model_manager.health_check()
     return {
         "status": "online",
         "service": "MRPL Enterprise Knowledge Base Engine",
         "vector_dimensions": config.EMBEDDING_DIMENSION,
         "postgres_connected": True,
+        "vllm": vllm_status,
     }
+
+
+@app.get("/api/v1/agent/health", summary="Check Reasoning Agent & vLLM Status")
+def agent_health():
+    """Check health and availability of Reasoning Agent and vLLM LLM endpoints."""
+    return agent_service.state_machine.model_manager.health_check()
+
 
 
 @app.post("/api/v1/ingestion/upload", summary="Async Ingest Upload")
@@ -333,6 +344,67 @@ def get_entity(entity_id: str):
         }
     finally:
         session.close()
+
+
+@app.post("/api/v1/agent/reason", response_model=AgentTaskResult, summary="Execute Reasoning Agent Task")
+def reason_agent_task(request: TaskRequest):
+    """
+    Execute a grounded reasoning task through the Reasoning Mini-Agent V1.
+    Performs search over existing KB, strictly grounds content, generates validated ReportLab PDF, and persists to MinIO.
+    """
+    try:
+        result = agent_service.process_task(request)
+        return result
+    except Exception as e:
+        logger.error(f"Error processing reasoning agent task: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/agent/download/{task_id}", summary="Download PDF Artifact by Task ID")
+@app.get("/api/v1/artifacts/download/{object_name}", summary="Download PDF Artifact by File Name")
+def download_pdf_artifact(task_id: Optional[str] = None, object_name: Optional[str] = None):
+    """
+    Download generated PDF artifact directly as a PDF file.
+    """
+    from rag.storage.minio_storage import minio_client
+    try:
+        bucket = "trusted"
+        target_obj = object_name
+        
+        if not target_obj and task_id:
+            try:
+                if hasattr(minio_client, "_get_client"):
+                    client = getattr(minio_client, "_get_client")()
+                    objects = list(client.list_objects(bucket, prefix=task_id))
+                    if objects:
+                        target_obj = objects[0].object_name
+            except Exception:
+                pass
+                
+        if not target_obj and task_id:
+            target_obj = f"{task_id}.pdf"
+            
+        if not target_obj:
+            raise HTTPException(status_code=400, detail="Must specify task_id or object_name")
+
+        pdf_bytes = minio_client.get_file(object_name=target_obj, bucket=bucket)
+        if not pdf_bytes:
+            raise HTTPException(status_code=404, detail=f"PDF artifact '{target_obj}' not found.")
+
+        filename = target_obj if target_obj.endswith(".pdf") else f"{target_obj}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Type": "application/pdf",
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading PDF artifact: {e}", exc_info=True)
+        raise HTTPException(status_code=404, detail=f"Artifact not found: {str(e)}")
 
 
 if __name__ == "__main__":

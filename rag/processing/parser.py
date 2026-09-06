@@ -14,6 +14,7 @@ from rag.processing.loaders.docx_loader import DocxLoader
 from rag.processing.loaders.excel_loader import ExcelLoader
 from rag.processing.loaders.pymupdf_loader import PyMuPDFLoader
 from rag.processing.loaders.csv_loader import CSVLoader
+from rag.processing.loaders.image_loader import ImageLoader
 from rag.processing.cleaner import TextCleaner
 from rag.processing.structure import StructureExtractor, StructuredDocumentBlock
 
@@ -44,10 +45,14 @@ class ParsedDocument(BaseModel):
         """Alias for full_cleaned_text."""
         return self.full_cleaned_text
 
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """Alias for document_metadata."""
+        return self.document_metadata
+
 
 class DocumentParser:
     """Unified Document Parser component."""
-
 
     def __init__(
         self,
@@ -57,6 +62,7 @@ class DocumentParser:
         self.cleaner = cleaner or TextCleaner()
         self.structure_extractor = structure_extractor or StructureExtractor()
         
+        img_loader = ImageLoader()
         # Format loader registry
         self._loaders: Dict[str, BaseLoader] = {
             ".pdf": PyMuPDFLoader(),
@@ -64,6 +70,12 @@ class DocumentParser:
             ".xlsx": ExcelLoader(),
             ".xls": ExcelLoader(),
             ".csv": CSVLoader(),
+            ".png": img_loader,
+            ".jpg": img_loader,
+            ".jpeg": img_loader,
+            ".bmp": img_loader,
+            ".tiff": img_loader,
+            ".tif": img_loader,
         }
 
     def register_loader(self, extension: str, loader: BaseLoader) -> None:

@@ -20,12 +20,12 @@ class ObjectStorage(ABC):
         pass
 
     @abstractmethod
-    def get_file(self, file_id: str) -> Optional[bytes]:
-        """Retrieve raw document bytes by file_id."""
+    def get_file(self, object_name: str, bucket: Optional[str] = None) -> Optional[bytes]:
+        """Retrieve raw document bytes by object_name or file_id."""
         pass
 
     @abstractmethod
-    def delete_file(self, file_id: str) -> bool:
+    def delete_file(self, object_name: str, bucket: Optional[str] = None) -> bool:
         """Delete raw document from storage."""
         pass
 
@@ -49,20 +49,41 @@ class LocalObjectStorage(ObjectStorage):
             logger.error(f"Failed to save file to object storage: {e}", exc_info=True)
             raise e
 
-    def get_file(self, file_id: str) -> Optional[bytes]:
-        for fname in os.listdir(self.storage_dir):
-            if fname.startswith(file_id):
-                fpath = os.path.join(self.storage_dir, fname)
-                with open(fpath, "rb") as f:
-                    return f.read()
+    def get_file(self, object_name: str, bucket: Optional[str] = None) -> Optional[bytes]:
+        search_dirs = []
+        if bucket:
+            search_dirs.append(os.path.join(self.storage_dir, bucket))
+        search_dirs.append(self.storage_dir)
+
+        base_query = object_name[:-4] if object_name.endswith(".pdf") else object_name
+
+        for d in search_dirs:
+            if not os.path.exists(d):
+                continue
+            for fname in os.listdir(d):
+                if fname == object_name or fname.startswith(base_query) or base_query in fname:
+                    fpath = os.path.join(d, fname)
+                    if os.path.isfile(fpath):
+                        with open(fpath, "rb") as f:
+                            return f.read()
+
+        for root, _, files in os.walk(self.storage_dir):
+            for fname in files:
+                if fname == object_name or fname.startswith(base_query) or base_query in fname:
+                    fpath = os.path.join(root, fname)
+                    if os.path.isfile(fpath):
+                        with open(fpath, "rb") as f:
+                            return f.read()
         return None
 
-    def delete_file(self, file_id: str) -> bool:
-        for fname in os.listdir(self.storage_dir):
-            if fname.startswith(file_id):
-                fpath = os.path.join(self.storage_dir, fname)
-                os.remove(fpath)
-                return True
+    def delete_file(self, object_name: str, bucket: Optional[str] = None) -> bool:
+        for root, _, files in os.walk(self.storage_dir):
+            for fname in files:
+                if fname == object_name or fname.startswith(object_name) or object_name in fname:
+                    fpath = os.path.join(root, fname)
+                    if os.path.isfile(fpath):
+                        os.remove(fpath)
+                        return True
         return False
 
     def upload_raw_document(

@@ -27,16 +27,18 @@ pypdf
 python-docx
 openpyxl
 pandas
+reportlab
 
 
-# === OCR (optional - CPU fallback) ===
-# paddleocr
-# paddlepaddle
+# === OCR ===
+paddleocr
+paddlepaddle
+Pillow
 
 # === NLP & Embeddings ===
 sentence-transformers
 FlagEmbedding
-numpy
+numpy<2.0
 spacy
 
 # === Search ===

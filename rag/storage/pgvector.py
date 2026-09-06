@@ -12,9 +12,7 @@ import numpy as np
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-if TYPE_CHECKING:
-    from rag.chunking.semantic_chunker import Chunk
-
+from rag.chunking.semantic_chunker import Chunk
 from rag.storage.postgres import DatabaseSessionManager
 
 logger = logging.getLogger(__name__)
