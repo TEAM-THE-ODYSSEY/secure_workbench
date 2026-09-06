@@ -1,6 +1,3 @@
-# ============================================================
-# Python Virtual Environments
-# ============================================================
 sih26/
 sih26
 .venv/
@@ -71,3 +68,6 @@ models_cache/
 *~
 .DS_Store
 Thumbs.db
+*.egg-info/
+.pytest_cache/
+.DS_Store

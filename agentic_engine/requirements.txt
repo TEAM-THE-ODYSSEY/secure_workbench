@@ -1,0 +1,53 @@
+# ============================================================
+# Sovereign Agentic AI Workbench
+# Core Runtime Requirements
+# ============================================================
+
+# HTTP client for local Ollama API
+requests>=2.32,<3
+
+# ============================================================
+# Document / File Extraction
+# ============================================================
+
+# PDF extraction
+pypdf>=5,<7
+
+# Word documents
+python-docx>=1.1,<2
+
+# PowerPoint documents
+python-pptx>=1.0,<2
+
+# Excel / XLSX
+openpyxl>=3.1,<4
+
+# ============================================================
+# Output Generation
+# ============================================================
+
+# PDF generation
+reportlab>=4,<5
+
+# ============================================================
+# Local RAG / Knowledge Retrieval
+# ============================================================
+
+# Vector database
+qdrant-client>=1.14,<2
+
+# Local embedding models
+sentence-transformers>=6,<7
+
+# ============================================================
+# Optional scientific / data processing support
+# ============================================================
+
+numpy>=2,<3
+pandas>=2.2,<3
+
+# ============================================================
+# Testing
+# ============================================================
+
+pytest>=8,<9
