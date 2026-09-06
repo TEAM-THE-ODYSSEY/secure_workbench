@@ -64,3 +64,20 @@ class LocalObjectStorage(ObjectStorage):
                 os.remove(fpath)
                 return True
         return False
+
+    def upload_raw_document(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        document_id: str,
+        bucket_name: str = "raw",
+    ) -> str:
+        """Helper method saving file to bucket subfolder and returning URI."""
+        bucket_dir = os.path.join(self.storage_dir, bucket_name)
+        os.makedirs(bucket_dir, exist_ok=True)
+        safe_filename = f"{document_id}_{os.path.basename(filename)}"
+        filepath = os.path.join(bucket_dir, safe_filename)
+        with open(filepath, "wb") as f:
+            f.write(file_bytes)
+        return f"file://{filepath}"
+

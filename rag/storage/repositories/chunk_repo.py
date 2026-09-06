@@ -3,13 +3,16 @@ Chunk Repository for storing and querying text passage chunks in database storag
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from sqlalchemy.orm import Session
 
-from rag.chunking.semantic_chunker import Chunk
+if TYPE_CHECKING:
+    from rag.chunking.semantic_chunker import Chunk
+
 from rag.storage.postgres import ChunkModel, db_manager
 
 logger = logging.getLogger(__name__)
+
 
 
 class ChunkRepository:
@@ -28,6 +31,10 @@ class ChunkRepository:
         self._local_chunks[chunk.chunk_id] = chunk
         session = self._get_session()
         try:
+            # Ensure embedding is a native Python list of floats
+            emb = [float(x) for x in chunk.embedding] if chunk.embedding is not None else None
+            meta = dict(chunk.metadata) if chunk.metadata else {}
+
             chunk_model = session.query(ChunkModel).filter(ChunkModel.chunk_id == chunk.chunk_id).first()
             if not chunk_model:
                 chunk_model = ChunkModel(
@@ -41,20 +48,20 @@ class ChunkRepository:
                     section_title=chunk.section_title,
                     chunk_index=chunk.chunk_index,
                     token_count=chunk.token_count,
-                    metadata_json=chunk.metadata,
-                    embedding_json=chunk.embedding,
+                    metadata_json=meta,
+                    embedding_json=emb,
                 )
                 session.add(chunk_model)
             else:
                 chunk_model.content = chunk.content
-                chunk_model.metadata_json = chunk.metadata
-                chunk_model.embedding_json = chunk.embedding
+                chunk_model.metadata_json = meta
+                chunk_model.embedding_json = emb
 
             session.commit()
             return chunk_model
         except Exception as e:
             session.rollback()
-            logger.debug(f"DB save_chunk notice ({e}). Stored in memory cache.")
+            logger.error(f"DB save_chunk error ({e}). Stored in memory cache.", exc_info=True)
             return None
         finally:
             if not self._external_session:

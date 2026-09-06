@@ -32,7 +32,7 @@ class ExtractedEntity(BaseModel):
 
 
 class EntityExtractor:
-    """Extracts technical entities from document text using pattern matching rules."""
+    """Extracts technical entities from document text using pattern matching rules and optional spaCy NER."""
 
     def __init__(self):
         # Patterns for MRPL refinery terminology
@@ -53,18 +53,37 @@ class EntityExtractor:
                 re.compile(r"\b(Crude Oil|Naphtha|Kerosene|Diesel|LPG|Furnace Oil|Bitumen|Sulphur|Hydrogen)\b", re.IGNORECASE),
             ],
         }
+        self._nlp = None
+        self._load_spacy()
+
+    def _load_spacy(self):
+        """Lazy try-load spaCy model for general entity extraction."""
+        try:
+            import spacy
+            try:
+                self._nlp = spacy.load("en_core_web_sm")
+                logger.info("Loaded spaCy en_core_web_sm model for entity extraction.")
+            except Exception:
+                logger.warning("spaCy installed but en_core_web_sm model missing. Using regex entity extraction.")
+        except ImportError:
+            logger.debug("spaCy not installed. Using regex entity extraction.")
 
     def extract_entities(self, text: str) -> List[ExtractedEntity]:
-        """Extract entities from input text."""
+        """Extract entities from input text using regex rules and spaCy."""
         entities: List[ExtractedEntity] = []
         counter = 0
+        seen_spans = set()
 
+        # 1. Regex rule extraction (highest priority for refinery technical codes)
         for ent_type, patterns in self._patterns.items():
             for pat in patterns:
                 for match in pat.finditer(text):
                     counter += 1
                     matched_str = match.group(0)
                     norm_str = matched_str.upper()
+                    span = (match.start(), match.end())
+                    seen_spans.add(span)
+
                     entities.append(
                         ExtractedEntity(
                             entity_id=f"ent_{ent_type.value.lower()}_{counter}",
@@ -77,4 +96,36 @@ class EntityExtractor:
                         )
                     )
 
+        # 2. spaCy NER extraction for departments/organizations if available
+        if self._nlp:
+            try:
+                doc = self._nlp(text)
+                for ent in doc.ents:
+                    span = (ent.start_char, ent.end_char)
+                    if span in seen_spans or len(ent.text.strip()) < 2:
+                        continue
+                    
+                    ent_type = None
+                    if ent.label_ == "ORG":
+                        ent_type = EntityType.DEPARTMENT
+                    elif ent.label_ in ("PRODUCT", "LAW"):
+                        ent_type = EntityType.PROCESS
+
+                    if ent_type:
+                        counter += 1
+                        entities.append(
+                            ExtractedEntity(
+                                entity_id=f"ent_{ent_type.value.lower()}_{counter}",
+                                entity_type=ent_type,
+                                text=ent.text,
+                                normalized_name=ent.text.strip().upper(),
+                                confidence=0.8,
+                                start_char=ent.start_char,
+                                end_char=ent.end_char,
+                            )
+                        )
+            except Exception as e:
+                logger.warning(f"spaCy entity extraction error: {e}")
+
         return entities
+

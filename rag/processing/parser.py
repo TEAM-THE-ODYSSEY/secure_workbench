@@ -12,6 +12,8 @@ from rag.ingestion.connectors.file_connector import RawIngestedDocument
 from rag.processing.loaders.pdf_loader import PDFLoader, BaseLoader, LoadedDocument
 from rag.processing.loaders.docx_loader import DocxLoader
 from rag.processing.loaders.excel_loader import ExcelLoader
+from rag.processing.loaders.pymupdf_loader import PyMuPDFLoader
+from rag.processing.loaders.csv_loader import CSVLoader
 from rag.processing.cleaner import TextCleaner
 from rag.processing.structure import StructureExtractor, StructuredDocumentBlock
 
@@ -37,9 +39,15 @@ class ParsedDocument(BaseModel):
     elements: List[ParsedContentElement] = Field(default_factory=list)
     document_metadata: Dict[str, Any] = Field(default_factory=dict)
 
+    @property
+    def content(self) -> str:
+        """Alias for full_cleaned_text."""
+        return self.full_cleaned_text
+
 
 class DocumentParser:
     """Unified Document Parser component."""
+
 
     def __init__(
         self,
@@ -51,10 +59,11 @@ class DocumentParser:
         
         # Format loader registry
         self._loaders: Dict[str, BaseLoader] = {
-            ".pdf": PDFLoader(),
+            ".pdf": PyMuPDFLoader(),
             ".docx": DocxLoader(),
             ".xlsx": ExcelLoader(),
             ".xls": ExcelLoader(),
+            ".csv": CSVLoader(),
         }
 
     def register_loader(self, extension: str, loader: BaseLoader) -> None:
@@ -131,3 +140,25 @@ class DocumentParser:
             elements=elements,
             document_metadata=combined_metadata,
         )
+
+    def parse_bytes(self, content_bytes: bytes, filename: str) -> ParsedDocument:
+        """Parse raw file bytes into ParsedDocument."""
+        import hashlib
+        from datetime import datetime, timezone
+
+        ext = os.path.splitext(filename)[1].lower() or ".txt"
+        checksum = hashlib.sha256(content_bytes).hexdigest()
+
+        raw_doc = RawIngestedDocument(
+            source_id=f"upload:{filename}:{checksum[:12]}",
+            filename=filename,
+            filepath=filename,
+            content_bytes=content_bytes,
+            extension=ext,
+            file_size_bytes=len(content_bytes),
+            modified_at=datetime.now(timezone.utc),
+            checksum=checksum,
+            raw_metadata={"connector": "DirectBytesUpload"},
+        )
+        return self.parse(raw_doc)
+

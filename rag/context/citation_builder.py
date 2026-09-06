@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class Citation(BaseModel):
-    """Structured citation referencing source document, page, section, and equipment tag."""
+    """Structured citation referencing source document, page, section, trust level, and equipment tag."""
     citation_id: str
     document_id: str
     title: str = "Unknown Document"
@@ -24,15 +24,22 @@ class Citation(BaseModel):
     page_number: int = 1
     section_title: str = "General"
     revision: str = "R0"
+    trust_level: str = "VERIFIED"
     chunk_id: str
     snippet: str
+
+    @property
+    def document_title(self) -> str:
+        """Alias for title to ensure backward compatibility."""
+        return self.title
 
     def to_formatted_str(self) -> str:
         """Format citation as a human-readable citation string."""
         return (
-            f"[{self.citation_id}] Document: {self.title} (Doc ID: {self.document_id}, Rev: {self.revision}) | "
+            f"[{self.citation_id}] Document: {self.title} (Doc ID: {self.document_id}, Rev: {self.revision}, Trust: {self.trust_level}) | "
             f"Unit: {self.unit} | Equip: {self.equipment_id} | Page: {self.page_number} | Section: {self.section_title}"
         )
+
 
 
 class CitationBuilder:
@@ -58,9 +65,11 @@ class CitationBuilder:
                 page_number=chunk.page_number,
                 section_title=chunk.section_title,
                 revision=meta.get("revision", "R0"),
+                trust_level=meta.get("trust_level", "VERIFIED"),
                 chunk_id=chunk.chunk_id,
                 snippet=snippet,
             )
             citations.append(cit)
+
 
         return citations

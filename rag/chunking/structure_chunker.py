@@ -47,10 +47,11 @@ class StructureAwareChunker:
                 chunk_idx += 1
                 combined_text = "\n\n".join([e.cleaned_text for e in current_elements])
                 meta_dict = metadata.to_dict() if metadata else {}
+                doc_id = metadata.document_id if (metadata and metadata.document_id) else parsed_doc.source_id
                 chunks.append(
                     Chunk(
-                        chunk_id=f"{parsed_doc.source_id}_struct_{chunk_idx}",
-                        document_id=parsed_doc.source_id,
+                        chunk_id=f"{doc_id}_struct_{chunk_idx}",
+                        document_id=doc_id,
                         version_id=meta_dict.get("version_id"),
                         content=combined_text,
                         page_number=current_page,
@@ -72,10 +73,11 @@ class StructureAwareChunker:
             chunk_idx += 1
             combined_text = "\n\n".join([e.cleaned_text for e in current_elements])
             meta_dict = metadata.to_dict() if metadata else {}
+            doc_id = metadata.document_id if (metadata and metadata.document_id) else parsed_doc.source_id
             chunks.append(
                 Chunk(
-                    chunk_id=f"{parsed_doc.source_id}_struct_{chunk_idx}",
-                    document_id=parsed_doc.source_id,
+                    chunk_id=f"{doc_id}_struct_{chunk_idx}",
+                    document_id=doc_id,
                     version_id=meta_dict.get("version_id"),
                     content=combined_text,
                     page_number=current_page,

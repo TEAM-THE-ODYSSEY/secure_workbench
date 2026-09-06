@@ -87,3 +87,67 @@ class CrossEncoderReranker(Reranker):
         except Exception as e:
             logger.error(f"CrossEncoder error: {e}. Falling back to ReciprocalReranker.")
             return self._fallback_reranker.rerank(query, candidate_chunks, top_n=top_n)
+
+
+class BGEReranker(Reranker):
+    """
+    Reranker using BGE Reranker v2 (BAAI/bge-reranker-v2-m3) via FlagEmbedding or CrossEncoder.
+    Provides production state-of-the-art multilingual and technical query-document relevance scoring.
+    """
+
+    def __init__(self, model_name: str = "BAAI/bge-reranker-v2-m3"):
+        self.model_name = model_name
+        self._model = None
+        self._is_flag_model = False
+        self._fallback = ReciprocalReranker()
+
+    def _get_model(self):
+        if self._model is None:
+            try:
+                from FlagEmbedding import FlagReranker
+                logger.info(f"Loading BGE Reranker via FlagEmbedding: {self.model_name}...")
+                self._model = FlagReranker(self.model_name, use_fp16=False)
+                self._is_flag_model = True
+            except Exception as e:
+                logger.warning(f"FlagReranker load failed ({e}), attempting CrossEncoder fallback...")
+                try:
+                    from sentence_transformers import CrossEncoder
+                    self._model = CrossEncoder(self.model_name)
+                    self._is_flag_model = False
+                except Exception as ex:
+                    logger.warning(f"Could not load BGE reranker model {self.model_name}: {ex}. Using ReciprocalReranker fallback.")
+                    self._model = False
+        return self._model
+
+    def rerank(
+        self,
+        query: str,
+        candidate_chunks: List[Tuple[Chunk, float]],
+        top_n: int = 5,
+    ) -> List[Tuple[Chunk, float]]:
+        if not candidate_chunks:
+            return []
+
+        model = self._get_model()
+        if not model:
+            return self._fallback.rerank(query, candidate_chunks, top_n=top_n)
+
+        try:
+            pairs = [[query, chunk.content] for chunk, _ in candidate_chunks]
+            if self._is_flag_model:
+                scores = model.compute_score(pairs, normalize=True)
+                if isinstance(scores, (float, int)):
+                    scores = [scores]
+            else:
+                scores = model.predict(pairs)
+
+            scored: List[Tuple[Chunk, float]] = []
+            for (chunk, _), score in zip(candidate_chunks, scores):
+                scored.append((chunk, float(score)))
+
+            scored.sort(key=lambda x: x[1], reverse=True)
+            return scored[:top_n]
+        except Exception as e:
+            logger.error(f"BGEReranker error: {e}. Falling back to ReciprocalReranker.")
+            return self._fallback.rerank(query, candidate_chunks, top_n=top_n)
+

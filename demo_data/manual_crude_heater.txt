@@ -1,0 +1,29 @@
+================================================================================
+MANGALORE REFINERY AND PETROCHEMICALS LIMITED (MRPL)
+TECHNICAL MAINTENANCE MANUAL: MAN-FURNACE-101
+UNIT: CRUDE DISTILLATION UNIT (CDU-1) & HYDROCRACKER (HCU)
+EQUIPMENT: F-101 (Crude Pre-heater Furnace), K-201 (Hydrocracker Gas Compressor)
+REVISION: R2 | DEPARTMENT: Maintenance
+================================================================================
+
+1. OVERVIEW
+Furnace F-101 heats desaltered crude oil from 210 °C to the flash zone temperature of 350 °C
+before entry into flash zone of Column C-101.
+
+2. TECHNICAL SPECIFICATIONS
+- Design Duty: 120 GCal/hr
+- Burners: 24 natural draft floor burners operating on Refinery Fuel Gas (RFG).
+- Tube Metallurgy: 9Cr-1Mo seamless alloy steel tubes.
+- Skin Temperature Limit: Maximum allowable tube skin temperature is 650 °C.
+
+3. COMPRESSOR K-201 (HYDROCRACKER UNIT HCU)
+Reciprocating compressor K-201 handles high-pressure recycle hydrogen gas in HCU.
+- Suction Pressure: 140.0 bar
+- Discharge Pressure: 175.0 bar
+- Lubrication: Forced feed synthetic ISO VG 150 oil.
+- Interstage cooling is maintained via Heat Exchanger E-205.
+
+4. MAINTENANCE & INSPECTION FREQUENCY
+- Burner tip cleaning: Every 90 days or if flame impingement is observed on tubes.
+- Tube thickness measurement (UT gauging): Conducted annually during scheduled turnaround.
+- Refer to SOP-CDU-101 for feed pump operation feeding Furnace F-101.

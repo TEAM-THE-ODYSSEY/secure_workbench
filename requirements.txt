@@ -1,21 +1,49 @@
+# === Core Framework ===
 fastapi
-uvicorn
-pydantic
+uvicorn[standard]
+pydantic>=2.0
 pydantic-settings
+python-multipart
 
-sqlalchemy
+# === Database & ORM ===
+sqlalchemy>=2.0
 psycopg[binary]
 pgvector
 alembic
 
+# === Async Workers ===
+redis
+celery[redis]
+
+# === Object Storage ===
+minio
+
+# === Environment ===
 python-dotenv
 
-pypdf
+# === Document Extraction ===
+pymupdf
 python-docx
 openpyxl
+pandas
 
+# === OCR (optional - CPU fallback) ===
+# paddleocr
+# paddlepaddle
+
+# === NLP & Embeddings ===
 sentence-transformers
+FlagEmbedding
+numpy
+spacy
 
+# === Search ===
 rank-bm25
 
-numpy
+# === Security ===
+pyclamd
+
+# === Testing ===
+pytest
+pytest-asyncio
+httpx
