@@ -1,0 +1,73 @@
+# ============================================================
+# Python Virtual Environments
+# ============================================================
+sih26/
+sih26
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ============================================================
+# Python Bytecode, Build & Cache Directories
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# ============================================================
+# Environment & Secrets (Keep template files like .env.example)
+# ============================================================
+.env
+.env.local
+.env.docker.local
+*.pem
+*.key
+*.crt
+
+# ============================================================
+# Application Data, Databases & Logs
+# ============================================================
+data/
+storage/
+pgdata/
+miniodata/
+clamavdata/
+*.sqlite
+*.db
+*.log
+logs/
+/tmp/
+
+# ============================================================
+# ML Model Caches & Weights (Hugging Face / PyTorch)
+# ============================================================
+.cache/
+huggingface/
+models_cache/
+*.bin
+*.pt
+*.onnx
+*.safetensors
+
+# ============================================================
+# IDE, Editor & OS Files
+# ============================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
