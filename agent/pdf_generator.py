@@ -74,11 +74,18 @@ class ReportLabPDFGenerator:
     Generates professional executive PDF documents from structured Pydantic model data.
     """
 
+    def generate_sop_pdf(self, content: StructuredPDFContent, task_id: str = "global") -> Tuple[bytes, str]:
+        """Helper returning tuple of (pdf_bytes, filename)."""
+        safe_title = "".join(c if c.isalnum() else "_" for c in content.title[:30])
+        filename = f"{task_id}_{safe_title}.pdf"
+        pdf_bytes = self.generate(content=content, task_id=task_id)
+        return pdf_bytes, filename
+
     def generate(
         self,
         content: StructuredPDFContent,
-        task_id: str,
-        model_name: str,
+        task_id: str = "global",
+        model_name: str = "Qwen3-4B",
         fallback_used: bool = False,
     ) -> bytes:
         """

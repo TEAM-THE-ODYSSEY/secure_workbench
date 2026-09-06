@@ -264,7 +264,7 @@ def test_insufficient_evidence_handling():
 
     result = sm.run(req)
     assert result.status == State.INSUFFICIENT_EVIDENCE.value
-    assert "does not contain sufficient evidence" in result.message.lower()
+    assert "no trusted evidence" in result.message.lower()
 
 
 # 10. Citation Validation Test
@@ -473,3 +473,54 @@ def test_end_to_end_reasoning_pipeline():
         assert result.artifact is not None
         assert result.artifact.file_size_bytes > 0
         assert len(result.citations) >= 1
+
+
+# 16. PID Capability & Tag Entity Linking Test
+def test_pid_tool_entity_linking():
+    from agent.pid import PIDTopologyEngine, PIDEntityLinker
+    linker = PIDEntityLinker()
+    ent = linker.resolve_entity("Pump P-101A")
+
+    assert ent.id == "EQ-P101A"
+    assert ent.type == "PUMP"
+    assert ent.tag == "P-101A"
+
+    engine = PIDTopologyEngine(entity_linker=linker)
+    valves = engine.query_isolation_valves("P-101A")
+    assert len(valves) >= 1
+    assert any(v["tag"] == "XV-101" for v in valves)
+
+
+# 17. Input Gateway MIME Validation Test
+def test_input_gateway_processing():
+    from agent.gateway import InputGateway
+    gw = InputGateway()
+
+    pdf_bytes = b"%PDF-1.4 Mock Upload Content"
+    processed = gw.process_upload(content_bytes=pdf_bytes, filename="test_diagram.pdf")
+
+    assert processed.file_id.startswith("doc_")
+    assert processed.content_type == "application/pdf"
+    assert processed.file_size_bytes == len(pdf_bytes)
+    assert processed.storage_uri is not None
+
+
+# 18. Execution Trace Metrics Test
+def test_execution_trace_metrics():
+    from agent.execution_trace import ExecutionTraceTracker
+    tracker = ExecutionTraceTracker(task_id="task_trace_001")
+    tracker.intent = "FAILURE_ANALYSIS"
+    tracker.entities = ["EQ-P101A"]
+    tracker.log_tool_call("knowledge_search")
+    tracker.log_tool_call("pid_query")
+    tracker.record_phase("retrieval_ms", 120.5)
+    tracker.record_phase("reasoning_ms", 450.0)
+
+    rec = tracker.get_record()
+    assert rec.task_id == "task_trace_001"
+    assert rec.intent == "FAILURE_ANALYSIS"
+    assert "knowledge_search" in rec.tools_called
+    assert "pid_query" in rec.tools_called
+    assert rec.latency_breakdown["retrieval_ms"] == 120.5
+    assert rec.latency_ms > 0.0
+

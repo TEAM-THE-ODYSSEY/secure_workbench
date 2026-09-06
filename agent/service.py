@@ -1,34 +1,32 @@
 """
-Service layer for Reasoning Mini-Agent V1.
-Provides high-level entry points for executing tasks.
+Service wrapper facade for Main AI Agent.
+Maintains 100% backward-compatible API entry points.
 """
 
 import logging
 from typing import Optional
 
-from agent.models import AgentTaskResult, TaskRequest
-from agent.state_machine import ReasoningStateMachine
+from agent.models.schemas import AgentTaskResult, TaskRequest
+from agent.main_agent import main_agent, MainAgent
 
 logger = logging.getLogger("agent.service")
 
 
 class ReasoningAgentService:
     """
-    Service wrapper for the Reasoning State Machine.
+    High-level Service facade delegating to the Main AI Agent.
     """
 
-    def __init__(self, state_machine: Optional[ReasoningStateMachine] = None):
-        self.state_machine = state_machine or ReasoningStateMachine()
+    def __init__(self, agent: Optional[MainAgent] = None, state_machine: Optional[Any] = None):
+        if state_machine and not agent:
+            agent = MainAgent(state_machine=state_machine)
+        self.main_agent = agent or main_agent
+        self.state_machine = self.main_agent.state_machine
 
     def process_task(self, request: TaskRequest, task_id: Optional[str] = None) -> AgentTaskResult:
-        """
-        Execute task request through Reasoning State Machine.
-        """
-        logger.info(f"ReasoningAgentService processing task objective: '{request.objective}'")
-        result = self.state_machine.run(request=request, task_id=task_id)
-        logger.info(f"ReasoningAgentService task {result.task_id} completed with status: {result.status}")
-        return result
+        """Process task through Main AI Agent."""
+        return self.main_agent.process_task(request=request, task_id=task_id)
 
 
-# Global singleton instance
+# Global singleton facade
 agent_service = ReasoningAgentService()

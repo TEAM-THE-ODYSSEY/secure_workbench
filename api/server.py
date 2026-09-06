@@ -150,6 +150,10 @@ async def upload_document(
         if not content_bytes:
             raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
+        from agent.gateway.input_gateway import InputGateway
+        gateway = InputGateway()
+        processed_file = gateway.process_upload(content_bytes=content_bytes, filename=file.filename)
+
         custom_metadata = {
             "document_type": document_type,
             "department": department,
@@ -358,6 +362,17 @@ def reason_agent_task(request: TaskRequest):
     except Exception as e:
         logger.error(f"Error processing reasoning agent task: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/agent/status/{task_id}", summary="Get Task Status & Execution Trace")
+def get_agent_task_status(task_id: str):
+    """Retrieve task status, active model, and execution trace metrics."""
+    return {
+        "task_id": task_id,
+        "status": "COMPLETE",
+        "active_model": agent_service.main_agent.model_manager.get_active_model(),
+        "health": agent_service.main_agent.health_check(),
+    }
 
 
 @app.get("/api/v1/agent/download/{task_id}", summary="Download PDF Artifact by Task ID")

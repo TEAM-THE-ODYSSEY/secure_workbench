@@ -111,3 +111,5 @@ class ContentVerifier:
             invalid_versions_count=invalid_versions,
             untrusted_sources_count=untrusted_sources,
         )
+
+    verify_structured_pdf = verify

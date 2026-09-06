@@ -75,3 +75,39 @@ IMPORTANT RULES:
 - If the evidence does not contain sufficient details for a complete document, output:
 {{"error": "INSUFFICIENT_EVIDENCE", "reason": "Detailed reason why evidence is missing"}}
 """
+
+REASONING_OUTPUT_PROMPT = """Based ONLY on the provided trusted evidence below, synthesize a thorough, evidence-grounded answer to the user's objective.
+
+USER OBJECTIVE:
+{objective}
+
+INTENT & CONTEXT PLAN:
+{plan_context}
+
+TRUSTED EVIDENCE & TOPOLOGY:
+{evidence_text}
+
+JSON SCHEMA REQUIREMENT:
+You must output ONLY valid JSON matching this exact structure:
+{{
+    "answer": "Detailed, evidence-grounded answer directly addressing user query.",
+    "claims": ["Factual claim 1", "Factual claim 2"],
+    "citations": [
+        {{
+            "document_id": "doc_id",
+            "title": "Doc Title",
+            "version": "1.0",
+            "section": "Section name",
+            "page": 1,
+            "trust_level": "TRUSTED"
+        }}
+    ],
+    "confidence": "HIGH",
+    "limitations": ["Any limitations, caveats, or missing evidence details"]
+}}
+
+CRITICAL RULES:
+- Output ONLY valid JSON.
+- Every claim MUST be traceable to the supplied evidence.
+- If evidence is insufficient, set "confidence": "LOW" and state missing details under "limitations".
+"""

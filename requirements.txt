@@ -3,6 +3,11 @@ uvicorn[standard]
 pydantic>=2.0
 pydantic-settings
 python-multipart
+websockets
+passlib[bcrypt]
+pyjwt
+httpx
+psutil
 
 # === Database & ORM ===
 sqlalchemy>=2.0
