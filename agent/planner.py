@@ -80,8 +80,8 @@ class ContextPlanner:
         obj_lower = request.objective.lower()
         entities = list(request.entities)
 
-        # Rule 1: PDF generation request
-        is_pdf = any(kw in obj_lower for kw in ["pdf", "sop", "standard operating procedure", "generate report"])
+        # Rule 1: Explicit PDF report generation request
+        is_pdf = any(kw in obj_lower for kw in ["generate pdf", "download pdf", "export pdf", "create pdf report", "make a pdf"])
         output_type = "PDF" if is_pdf else "TEXT"
 
         # Rule 2: Equipment tag extraction
@@ -91,6 +91,20 @@ class ContextPlanner:
             tag_clean = tag.upper().replace(" ", "")
             if tag_clean not in entities:
                 entities.append(tag_clean)
+
+        # Rule 0: Conversational greeting check
+        import re
+        is_doc = any(kw in obj_lower for kw in ["explain", "doc", "pdf", "file", "report"])
+        greeting_pattern = r'\b(hi|hai|hello|hey|greetings|good morning|good afternoon|good evening|how are you|how are u|how do you do|who are you|what can you do)\b'
+        is_greeting = not is_doc and (bool(re.search(greeting_pattern, obj_lower)) or (len(obj_lower) <= 4 and not any(c.isdigit() for c in obj_lower)))
+        if is_greeting:
+            return ContextPlan(
+                intent="GREETING",
+                entities=[],
+                required_context=[],
+                tool_calls=[],
+                output_type="TEXT"
+            )
 
         # Rule 3: Intent determination and tool planning
         tool_calls = []

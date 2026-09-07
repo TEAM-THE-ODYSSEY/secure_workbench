@@ -63,6 +63,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# NOTE: Backend routers (auth, chat, sessions, etc.) are mounted in
+# backend/app/main.py which is the unified production entry point.
+# This file (api/server.py) can be used standalone for KB-only development.
+
 
 # --- DATA MODELS ---
 

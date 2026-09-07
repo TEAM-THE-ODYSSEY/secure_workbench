@@ -70,4 +70,14 @@ models_cache/
 Thumbs.db
 *.egg-info/
 .pytest_cache/
+=======
+backend/workspace/*.db
+backend/workspace/.jwt_secret
+backend/workspace/*.json
+backend/workspace/uploads/
+backend/workspace/artifacts/
+backend/workspace/knowledge_base/
+__pycache__/
+*.py[cod]
+.venv/
 .DS_Store

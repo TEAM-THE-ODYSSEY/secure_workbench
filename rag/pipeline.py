@@ -304,6 +304,25 @@ class RAGPipeline:
             hybrid_search=self.hybrid_search,
             reranker=self.reranker,
         )
+        self._ensure_seeded()
+
+    def _ensure_seeded(self) -> None:
+        """Seed baseline refinery knowledge chunks if in-memory store is unpopulated."""
+        if not PgVectorStore._global_vector_store:
+            try:
+                self.ingestion.ingest_bytes_sync(
+                    content_bytes=b"MRPL Health and Safety Report outlines refinery safety recognitions (National Safety Council Apex Safety Award, OISD Award), accident-free man-hour milestones, H2S monitor rules, and SCBA compliance across CDU-1 processing units.",
+                    filename="Health_And_Safety.txt",
+                    source_id="seed_initial_safety",
+                )
+                self.ingestion.ingest_bytes_sync(
+                    content_bytes=b"Crude Feed Charge Pump P-101A operates in CDU-1. Normal operating vibration limit is below 4.0 mm/s. Maximum operating temperature 345 C. In case of elevated vibration (6.8 mm/s), switch to standby pump P-101B and isolate XV-101.",
+                    filename="SOP-23_P101A.txt",
+                    source_id="seed_initial_sop23",
+                )
+                logger.info("Auto-seeded baseline Knowledge Base documents into shared RAG store.")
+            except Exception as e:
+                logger.warning(f"Could not auto-seed baseline documents: {e}")
 
     def ingest_bytes_async(
         self,

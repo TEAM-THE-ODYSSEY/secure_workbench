@@ -351,12 +351,30 @@ class DatabaseSessionManager:
                 pass
             logger.info("Successfully connected to primary PostgreSQL database.")
         except Exception as e:
-            if config.USE_IN_MEMORY_FALLBACK:
-                logger.warning(f"Failed to connect to Postgres ({e}). Falling back to SQLite in-memory.")
+            # Check if URI uses 'postgres' hostname that failed DNS resolution
+            connected = False
+            if "@postgres:" in self.uri or "@postgres/" in self.uri:
+                try:
+                    fallback_uri = self.uri.replace("@postgres:", "@localhost:").replace("@postgres/", "@localhost/")
+                    logger.warning(f"Failed to resolve host 'postgres' ({e}). Retrying with '{fallback_uri.split('@')[-1]}'")
+                    self._engine = create_engine(
+                        fallback_uri,
+                        pool_size=config.DB_POOL_SIZE,
+                        max_overflow=config.DB_MAX_OVERFLOW,
+                        pool_pre_ping=True,
+                    )
+                    with self._engine.connect() as conn:
+                        pass
+                    self.uri = fallback_uri
+                    logger.info("Successfully connected to PostgreSQL at localhost.")
+                    connected = True
+                except Exception as ex2:
+                    logger.warning(f"PostgreSQL connection at localhost also failed: {ex2}")
+
+            if not connected:
+                logger.warning(f"PostgreSQL connection failed ({e}). Falling back to SQLite in-memory database.")
                 self.uri = "sqlite:///:memory:"
                 self._engine = create_engine(self.uri, connect_args={"check_same_thread": False})
-            else:
-                raise e
 
         self._session_factory = sessionmaker(bind=self._engine, autoflush=False, autocommit=False)
         

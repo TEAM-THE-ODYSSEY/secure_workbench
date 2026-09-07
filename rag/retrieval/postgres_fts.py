@@ -25,11 +25,12 @@ class PostgresFTSSearch:
     Full-Text Search implementation using PostgreSQL native tsvector/tsquery indexing
     with in-memory keyword matching fallback.
     """
+    _global_chunks: Dict[str, Chunk] = {}
 
     def __init__(self, db_manager: Optional[DatabaseSessionManager] = None):
         self.db_manager = db_manager
-        # In-memory document fallback store for testing or offline operation
-        self._chunks: Dict[str, Chunk] = {}
+        # Reference shared in-memory document store for fallback or offline operation
+        self._chunks = PostgresFTSSearch._global_chunks
 
     def add_chunk(self, chunk: Chunk) -> None:
         """Cache chunk in memory for fallback searching."""

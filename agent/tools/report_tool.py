@@ -41,12 +41,22 @@ class ReportTool(BaseTool):
             task_id=task_id,
         )
 
-        from rag.storage.minio_storage import minio_client
-        storage_uri = minio_client.save_file(
-            file_id=task_id,
-            content_bytes=pdf_bytes,
-            filename=filename,
-        )
+        try:
+            from rag.storage.minio_storage import minio_client
+            storage_uri = minio_client.save_file(
+                file_id=task_id,
+                content_bytes=pdf_bytes,
+                filename=filename,
+            )
+        except Exception as ex:
+            logger.warning(f"MinIO storage save failed ({ex}). Falling back to LocalObjectStorage.")
+            from rag.storage.object_storage import LocalObjectStorage
+            local_store = LocalObjectStorage()
+            storage_uri = local_store.save_file(
+                file_id=task_id,
+                content_bytes=pdf_bytes,
+                filename=filename,
+            )
 
         return ArtifactMetadata(
             filename=filename,

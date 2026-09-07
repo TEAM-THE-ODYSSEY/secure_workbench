@@ -35,12 +35,13 @@ class PgVectorStore:
     Abstraction for pgvector operations and vector similarity queries using PostgreSQL native pgvector extension
     with in-memory fallback cache.
     """
+    _global_vector_store: Dict[str, Tuple[Chunk, List[float]]] = {}
 
     def __init__(self, dimension: int = 1024, db_manager: Optional[DatabaseSessionManager] = None):
         self.dimension = dimension
         self.db_manager = db_manager
-        # In-memory vector cache for fallback or local testing
-        self._vector_store: Dict[str, Tuple[Chunk, List[float]]] = {}
+        # Reference shared in-memory vector cache for fallback or local testing
+        self._vector_store = PgVectorStore._global_vector_store
 
     def insert_chunk_vector(
         self,

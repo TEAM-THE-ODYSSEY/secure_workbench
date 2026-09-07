@@ -6,7 +6,7 @@ Renders validated StructuredPDFContent into an executive, enterprise-grade PDF d
 from datetime import datetime, timezone
 import io
 import logging
-from typing import Optional
+from typing import Optional, Tuple, List, Dict, Any
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet

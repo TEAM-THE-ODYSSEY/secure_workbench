@@ -79,18 +79,25 @@ class MinIOObjectStorage(ObjectStorage):
 
         obj_name = object_name or file_id or (filename if filename else "document")
         bucket = bucket or config.MINIO_BUCKET_RAW
-        client = self._get_client()
-
-        data_stream = io.BytesIO(data)
-        client.put_object(
-            bucket_name=bucket,
-            object_name=obj_name,
-            data=data_stream,
-            length=len(data),
-        )
-        uri = f"minio://{bucket}/{obj_name}"
-        logger.info(f"Saved {len(data)} bytes to {uri}")
-        return uri
+        try:
+            client = self._get_client()
+            data_stream = io.BytesIO(data)
+            client.put_object(
+                bucket_name=bucket,
+                object_name=obj_name,
+                data=data_stream,
+                length=len(data),
+            )
+            uri = f"minio://{bucket}/{obj_name}"
+            logger.info(f"Saved {len(data)} bytes to {uri}")
+            return uri
+        except Exception as e:
+            logger.warning(f"MinIO save_file failed ({e}). Falling back to LocalObjectStorage.")
+            from rag.storage.object_storage import LocalObjectStorage
+            local_store = LocalObjectStorage()
+            fid = file_id or "artifact"
+            fname = filename or f"{obj_name}.pdf"
+            return local_store.save_file(file_id=fid, content_bytes=data, filename=fname)
 
     def get_file(self, object_name: str, bucket: Optional[str] = None) -> Optional[bytes]:
         """Retrieve file bytes from MinIO bucket."""

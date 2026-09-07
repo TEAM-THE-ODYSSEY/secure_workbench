@@ -35,5 +35,5 @@ COPY . .
 # Expose API port
 EXPOSE 8000
 
-# Default: run FastAPI server
-CMD ["uvicorn", "api.server:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default: run FastAPI unified server
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

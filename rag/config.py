@@ -20,7 +20,7 @@ class RAGConfig(BaseSettings):
     POSTGRES_URI: str = "postgresql+psycopg://postgres:postgres@localhost:5432/mrpl_rag"
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
-    USE_IN_MEMORY_FALLBACK: bool = False
+    USE_IN_MEMORY_FALLBACK: bool = True
 
     # --- Redis / Celery ---
     REDIS_URL: str = "redis://localhost:6379/0"
