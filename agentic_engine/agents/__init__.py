@@ -1,13 +1,18 @@
 from .base import BaseAgent
 from .coding import CodingAgent
-from .mathematical import MathematicalAgent
+from .document import DocumentAgent
+from .mathematics import MathematicalAgent, MathematicsAgent
 from .multimodal import MultimodalAgent
+from .pid import PIDAgent
 from .reasoning import ReasoningAgent
 
 __all__ = [
     "BaseAgent",
     "ReasoningAgent",
-    "CodingAgent",
     "MathematicalAgent",
+    "MathematicsAgent",
+    "CodingAgent",
+    "DocumentAgent",
     "MultimodalAgent",
+    "PIDAgent",
 ]

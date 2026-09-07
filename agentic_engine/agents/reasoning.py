@@ -1,9 +1,22 @@
-from typing import Any
+from __future__ import annotations
 
+from typing import Any, Dict, List, Set
 from .base import BaseAgent
+from ..models.capabilities import TaskCapability
 
 
 class ReasoningAgent(BaseAgent):
+    name = "reasoning"
+    task_types = ["reasoning"]
+    capabilities: Set[str] = {
+        TaskCapability.REASONING.value,
+        TaskCapability.RETRIEVAL.value,
+        TaskCapability.STRUCTURED_OUTPUT.value,
+    }
+    input_types = ["text"]
+    output_types = ["text", "json"]
+    required_tools = []
+    validator_chain = ["text"]
 
     def run(
         self,
@@ -12,35 +25,23 @@ class ReasoningAgent(BaseAgent):
         model: str = "",
         metadata: dict[str, Any] | None = None,
     ) -> str:
-
         metadata = metadata or {}
         history = metadata.get("history", [])
-
-        # Keep only recent conversation turns.
         recent_history = history[-10:]
 
         history_text = "\n".join(
-            f"{item.get('role', 'unknown').upper()}: "
-            f"{item.get('content', '')}"
+            f"{item.get('role', 'unknown').upper()}: {item.get('content', '')}"
             for item in recent_history
         )
 
-        prompt = f"""
-You are a helpful AI assistant.
-
-Answer the CURRENT USER QUESTION directly.
+        prompt = f"""You are a helpful AI reasoning assistant.
+Answer the CURRENT USER QUESTION directly, analytically, and with zero hallucination.
 
 IMPORTANT RULES:
-- Do NOT continue or invent a conversation.
-- Do NOT generate fake USER/ASSISTANT dialogue.
-- Do NOT repeat the entire conversation.
-- Do NOT create multiple imaginary AI responses.
-- Use conversation history only to understand context.
-- If the answer exists in the conversation history, use it.
 - Answer only the current question.
-- For a simple question, give a short direct answer.
-- Do not mention files unless a file is actually provided.
-- Do not invent information.
+- Do not invent information or continuous conversation.
+- Use conversation history only to understand context.
+- Ground answer in the provided file and company context.
 
 CONVERSATION HISTORY:
 {history_text if history_text else "No previous conversation."}
@@ -48,18 +49,9 @@ CONVERSATION HISTORY:
 CURRENT USER QUESTION:
 {user_text}
 
-FILE CONTEXT:
-{context if context else "No file context."}
+CONTEXT:
+{context if context else "No additional context."}
 
 YOUR ANSWER:
 """
-
-        result = self.llm.generate(
-            prompt=prompt,
-            model=model,
-        )
-
-        if result is None:
-            return "I could not generate an answer."
-
-        return str(result).strip()
+        return self.llm.generate(prompt=prompt, model=model)

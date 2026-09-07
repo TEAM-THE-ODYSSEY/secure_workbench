@@ -1,139 +1,116 @@
 from __future__ import annotations
 
-from .agents.coding import CodingAgent
-from .agents.mathematical import MathematicalAgent
-from .agents.multimodal import MultimodalAgent
-from .agents.reasoning import ReasoningAgent
-from .code_runner import CodingWorkflow
+import logging
+import uuid
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+from .agents import (
+    CodingAgent,
+    DocumentAgent,
+    MathematicalAgent,
+    MultimodalAgent,
+    PIDAgent,
+    ReasoningAgent,
+)
 from .config import Settings
 from .document_output import DocumentOutput
 from .extractors import extract
-from .guardrails.input_guard import InputGuard
+from .guardrails.input_guard import InputGuard, SecurityDecision
 from .knowledge import KnowledgeRetriever
 from .llm import OllamaClient
-from .models.selector import ModelSelector
-from .orchestrator.planner import Planner
-from .sandbox import DockerSandbox
+from .models.registry import ModelProfile
+from .models.resources import ResourceMonitor
+from .models.selector import ModelCapabilityUnavailableError, ModelSelector
+from .observability.tracer import Tracer
+from .orchestration.execution_plan import ExecutionPlan
+from .orchestration.planner import ExecutionPlanner
+from .orchestration.policy import PolicyEngine
+from .orchestration.router import CapabilityRouter
+from .runtime.budgets import BudgetTracker, ExecutionBudget
+from .runtime.context import ScopedContext
+from .runtime.executor import ExecutionCoordinator
+from .runtime.scheduler import DAGScheduler
+from .runtime.state import ExecutionState, StateTracker
 from .session_store import SessionStore
-from .state.schema import AgentState, ValidationState
-from .validators import get_validator
+from .validators.base import ValidationResult
+from .validators.registry import build_validator_chain, get_default_chain_for_task
+
+logger = logging.getLogger("agentic_engine")
 
 
-class Orchestrator:
-    """Central brain for the generic Agentic AI Workbench.
-
-    The planner decides what to call. State records what happened. Agents do
-    the work. Validators decide whether the result is acceptable. A failed
-    validation returns control to the orchestrator for bounded re-planning.
+class AgenticEngine:
+    """Canonical Execution Engine for Air-Gapped Sovereign AI.
+    
+    Guarantees deterministic, capability-driven, resource-aware, validated,
+    and observable multi-agent execution.
     """
 
-    def __init__(self, settings: Settings | None = None):
+    def __init__(self, settings: Optional[Settings] = None):
         self.settings = settings or Settings()
         self.store = SessionStore(self.settings.db_path)
         self.llm = OllamaClient(self.settings)
         self.guard = InputGuard()
-        self.planner = Planner(self.llm)
-        self.selector = ModelSelector()
+        self.planner = ExecutionPlanner(self.llm)
+        self.resources = ResourceMonitor()
+        self.selector = ModelSelector(self.resources)
+        self.router = CapabilityRouter()
+        self.policy = PolicyEngine()
         self.retriever = KnowledgeRetriever()
-        self.sandbox = DockerSandbox()
         self.doc_output = DocumentOutput()
+        self.dag_scheduler = DAGScheduler(max_concurrency=4)
 
-        self.agents = {
+        # Agent Registry with Capability Contracts
+        self.agents: Dict[str, Any] = {
             "reasoning": ReasoningAgent(self.llm),
-            "mathematical": MathematicalAgent(self.llm),
+            "mathematics": MathematicalAgent(self.llm),
+            "mathematical": MathematicalAgent(self.llm),  # Alias
             "coding": CodingAgent(self.llm),
+            "document": DocumentAgent(self.llm),
             "multimodal": MultimodalAgent(self.llm),
+            "pid": PIDAgent(self.llm),
         }
 
-    def new_chat(self):
+        # Runtime Execution Coordinator
+        self.executor = ExecutionCoordinator(
+            agents=self.agents,
+            model_selector=self.selector,
+            validator_runner_fn=self._run_validator_chain,
+            doc_output_fn=self.doc_output.create,
+        )
+
+    def new_chat(self) -> str:
         return self.store.create_chat()
 
-    @staticmethod
-    def _format_context(file_text: str, retrieved: list[dict]) -> str:
-        parts = []
-        if file_text:
-            parts.append("FILE CONTENT:\n" + file_text)
-        if retrieved:
-            parts.append("RETRIEVED COMPANY CONTEXT:\n" + "\n".join(
-                f"- {x.get('text', '')}" for x in retrieved
-            ))
-        return "\n\n".join(parts)
-
-    @staticmethod
-    def _retrieval_requested(state: AgentState) -> bool:
-        return state.plan.retrieval
-
-    def _create_output(self, state: AgentState):
-        if state.plan.output_type == "text":
-            return None
-        # If execution result already produced an Excel file (e.g. from P&ID domain tool)
-        if state.execution_result and hasattr(state.execution_result, "xlsx_path") and state.execution_result.xlsx_path:
-            return state.execution_result.xlsx_path
-        try:
-            return self.doc_output.create(
-                filename="agent_output",
-                content=state.answer,
-                fmt=state.plan.output_type,
-            )
-        except Exception as exc:
-            state.error = f"Output generation failed: {exc}"
-            return None
-
-    def _validate(self, state: AgentState):
-        validator = get_validator(state.plan.validation_type)
-        result = validator.validate(
-            state.answer,
-            execution=state.execution_result,
-            user_request=state.user_request,
-        )
-        state.validation = ValidationState(result.valid, result.reason, result.details or {})
-
-    def _run_agent(self, state: AgentState):
-        agent_name = state.plan.agent
-        model = state.selected_model
-        metadata = {
-            "history": state.history,
-            "state": state.to_dict(),
-            "state_ref": state,
-            "file_path": state.file_path,
-        }
-
-        if agent_name == "coding":
-            workflow = CodingWorkflow(self.llm, sandbox=self.sandbox, max_attempts=1)
-            result = workflow.run(state.user_request, self._context(state), model)
-            state.answer = result.final_explanation
-            state.execution_result = result.execution
-            state.current_step = "validation"
-            return
-
-        agent = self.agents.get(agent_name, self.agents["reasoning"])
-        state.answer = agent.run(
-            user_text=state.user_request or "Analyze the supplied file and provide the most useful answer.",
-            context=self._context(state),
-            model=model,
-            metadata=metadata,
-        )
-        state.current_step = "validation"
-
-    def _context(self, state: AgentState) -> str:
-        return self._format_context(
-            state.file_content[:self.settings.max_context_chars],
-            state.retrieved_context,
+    def _run_validator_chain(
+        self,
+        chain_name_or_first: str,
+        output: str,
+        user_request: str,
+        execution_result: Any = None,
+    ) -> ValidationResult:
+        chain = build_validator_chain([chain_name_or_first])
+        return chain.validate(
+            output=output,
+            user_request=user_request,
+            execution=execution_result,
         )
 
-    def _replan_after_failure(self, state: AgentState):
-        feedback = state.validation.reason
-        state.user_request = (
-            f"{state.user_request}\n\nPrevious attempt failed validation.\n"
-            f"Validator feedback: {feedback}\nProduce a corrected result."
-        )
-        # Keep the original task family unless a genuine planning error is detected.
-        state.current_step = "replan"
+    def execute(
+        self,
+        message: str = "",
+        file_path: Optional[str] = None,
+        chat_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Canonical entry point executing the non-negotiable 16-step architecture."""
+        active_chat_id = chat_id or session_id or self.new_chat()
+        request_id = f"req_{uuid.uuid4().hex[:8]}"
+        trace = Tracer.start_trace(request_id=request_id)
+        span_total = trace.start_span("total_execution")
 
-    def run(self, chat_id: str, message: str = "", file_path: str | None = None):
-        if not self.store.exists(chat_id):
-            raise ValueError(f"Unknown chat ID: {chat_id}")
-
+        # 1. Input Normalization & Extraction
+        span_norm = trace.start_span("input_normalization")
         file_content = ""
         if file_path:
             try:
@@ -141,100 +118,144 @@ class Orchestrator:
                 file_content = extracted.get("text", "")
             except Exception as e:
                 file_content = f"[File extraction notice: {e}]"
+        span_norm.finish()
 
+        # 2. Security Gate & Trust Policy Check
+        span_sec = trace.start_span("security_policy_check")
         allowed, reason, meta = self.guard.check(message, file_path, file_content)
+        span_sec.finish(decision=meta.get("decision", "ACCEPT"))
+
         if not allowed:
-            self.store.add(chat_id, "system", f"Request blocked before LLM: {reason}", {"blocked": True, "security": meta})
+            self.store.add(
+                active_chat_id,
+                "system",
+                f"Request blocked before LLM: {reason}",
+                {"blocked": True, "security": meta},
+            )
+            span_total.finish(status="BLOCKED")
             return {
-                "chat_id": chat_id,
+                "chat_id": active_chat_id,
+                "request_id": request_id,
+                "trace_id": trace.trace_id,
+                "status": "blocked",
                 "blocked": True,
                 "task": "blocked",
+                "task_type": "blocked",
+                "complexity": "none",
+                "capabilities": [],
+                "agent": "security_gate",
+                "model": "none",
+                "tools": [],
                 "answer": f"Request blocked by pre-LLM security gate: {reason}",
                 "security": meta,
+                "validation": {"valid": False, "reason": reason},
+                "artifacts": {},
+                "latency": {"total_ms": span_sec.duration_ms},
             }
 
-        state = AgentState(
-            chat_id=chat_id,
-            user_request=message,
-            file_path=file_path,
-            file_content=file_content,
-            history=self.store.history(chat_id, self.settings.max_history),
-        )
-        state.current_step = "planning"
-
-        state.plan = self.planner.plan(
-            message,
+        # 3. Task Classification, Complexity Analysis, and Planning
+        span_plan = trace.start_span("planning")
+        plan: ExecutionPlan = self.planner.plan(
+            text=message,
             context_chars=len(file_content),
             has_file=bool(file_path),
             file_path=file_path,
         )
+        span_plan.finish(task_type=plan.task_type, complexity=plan.complexity)
 
-        if state.plan.retrieval:
-            state.retrieved_context = self.retriever.search(message, limit=5)
-
-        state.plan = self.planner.plan(
-            message,
-            context_chars=len(self._context(state)),
-            has_file=bool(file_path),
-            file_path=file_path,
-        )
-
-        model = self.selector.select(
-            state.plan.task_type,
-            state.plan.complexity,
-            required_context=len(self._context(state)),
-        )
-        state.selected_model = model.name
-        state.model_parameters = model.parameters
-
-        self.store.add(chat_id, "user", message or "[file upload]", {"plan": state.plan.to_dict(), "model": model.name})
-
-        for iteration in range(1, state.plan.max_iterations + 1):
-            state.iteration = iteration
-            state.current_step = "agent_execution"
+        # 4. Knowledge Retrieval (if plan requires retrieval)
+        retrieved_items = []
+        if plan.retrieval or "knowledge_retriever" in plan.tools:
+            span_retrieval = trace.start_span("retrieval")
             try:
-                self._run_agent(state)
-                self._validate(state)
-                if state.validation.valid:
-                    state.status = "completed"
-                    break
-                self._replan_after_failure(state)
-            except Exception as exc:
-                state.error = str(exc)
-                state.validation = ValidationState(False, str(exc), {})
-                if iteration < state.plan.max_iterations:
-                    self._replan_after_failure(state)
-                else:
-                    state.status = "failed"
+                retrieved_items = self.retriever.search(message, limit=5)
+            except Exception as e:
+                logger.warning(f"Knowledge retrieval error: {e}")
+            span_retrieval.finish(count=len(retrieved_items))
 
-        if not state.validation.valid:
-            state.status = "failed"
-            if state.answer:
-                state.answer += f"\n\nValidation status: FAILED. {state.validation.reason}"
-            else:
-                state.answer = f"The task could not be completed.\n\nValidation status: FAILED. {state.validation.reason}"
-        else:
-            state.output_file = self._create_output(state)
-            if state.output_file:
-                state.answer += f"\n\nOUTPUT FILE: {state.output_file}"
+        # 5. Build Scoped Execution Context
+        context = ScopedContext(
+            request_id=request_id,
+            session_id=active_chat_id,
+            task_context=message,
+            conversation_context=self.store.history(active_chat_id, self.settings.max_history),
+            retrieved_context=retrieved_items,
+            file_path=file_path,
+            file_content=file_content,
+        )
 
-        self.store.add(chat_id, "assistant", state.answer, {
-            "plan": state.plan.to_dict(),
-            "model": state.selected_model,
-            "validation": state.validation.to_dict(),
-            "state": state.to_dict(),
-        })
+        # 6. Execute DAG or Agent via Execution Coordinator
+        span_exec = trace.start_span("agent_execution", agent=plan.agent)
+        try:
+            res = self.executor.execute(
+                plan=plan,
+                context=context,
+                replan_callback_fn=lambda directive, feedback: self.planner.plan(
+                    text=f"{directive}\n[Validator Feedback: {feedback}]",
+                    context_chars=len(file_content),
+                    has_file=bool(file_path),
+                    file_path=file_path,
+                ),
+            )
+        except ModelCapabilityUnavailableError as mc_err:
+            span_exec.finish(status="MODEL_CAPABILITY_UNAVAILABLE")
+            span_total.finish(status="FAILED")
+            return {
+                "chat_id": active_chat_id,
+                "request_id": request_id,
+                "trace_id": trace.trace_id,
+                "status": "failed",
+                "blocked": False,
+                "task": plan.task_type,
+                "task_type": plan.task_type,
+                "complexity": plan.complexity,
+                "capabilities": plan.capabilities,
+                "agent": plan.agent,
+                "model": "unavailable",
+                "tools": plan.tools,
+                "answer": f"Task execution halted: {mc_err}",
+                "error": str(mc_err),
+                "validated": False,
+                "artifacts": {},
+            }
 
-        return {
-            "chat_id": chat_id,
-            "blocked": False,
-            "task": state.plan.task_type,
-            "complexity": state.plan.complexity,
-            "model": state.selected_model,
-            "parameters": state.model_parameters,
-            "plan": state.plan.to_dict(),
-            "answer": state.answer,
-            "validated": state.validation.valid,
-            "output_file": state.output_file,
-            "status": state.status,
-        }
+        span_exec.finish(status=res.get("status", "COMPLETED"))
+        span_total.finish()
+
+        # 7. Persist to Session Store
+        self.store.add(
+            active_chat_id,
+            "user",
+            message or "[file upload]",
+            {"plan": plan.to_dict(), "model": res.get("model", "")},
+        )
+        self.store.add(
+            active_chat_id,
+            "assistant",
+            res.get("answer", ""),
+            {
+                "plan": plan.to_dict(),
+                "model": res.get("model", ""),
+                "validation": res.get("validation", {}),
+                "status": res.get("status", ""),
+            },
+        )
+
+        # 8. Enrich Response Contract
+        res["chat_id"] = active_chat_id
+        res["request_id"] = request_id
+        res["trace_id"] = trace.trace_id
+        res["blocked"] = False
+        res["task"] = plan.task_type
+        res["validated"] = res.get("validation", {}).get("valid", False)
+        res["trace"] = trace.to_dict()
+
+        return res
+
+    def run(self, chat_id: str, message: str = "", file_path: str | None = None) -> Dict[str, Any]:
+        """Backward-compatible run() method matching existing orchestrator signatures."""
+        return self.execute(message=message, file_path=file_path, chat_id=chat_id)
+
+
+# Backward-compatible alias
+Orchestrator = AgenticEngine

@@ -1,23 +1,51 @@
 from __future__ import annotations
 
+from typing import Any, Dict, List, Set
 from .base import BaseAgent
+from ..code_runner import CodingWorkflow
+from ..models.capabilities import TaskCapability
+from ..sandbox import DockerSandbox
 
 
 class CodingAgent(BaseAgent):
-    def run(self, user_text, context, model, metadata):
-        prompt = f"""
-You are the coding agent.
-The orchestrator will execute your Python code in a restricted sandbox.
-When the request asks for code, return runnable Python in exactly one code block.
-Do not put explanations before or after the code block.
-When debugging existing code, preserve the user's intent and fix the actual defect.
-Never claim execution unless the sandbox result supplied later proves it.
-Do not use network, subprocess, shell commands, or unsafe OS operations.
+    name = "coding"
+    task_types = ["coding"]
+    capabilities: Set[str] = {
+        TaskCapability.CODING.value,
+        TaskCapability.SANDBOX.value,
+        TaskCapability.STRUCTURED_OUTPUT.value,
+    }
+    input_types = ["text"]
+    output_types = ["text", "code", "xlsx", "csv"]
+    required_tools = ["python_sandbox"]
+    validator_chain = ["syntax", "code"]
 
-USER REQUEST:
-{user_text}
+    def __init__(self, llm, sandbox: DockerSandbox | None = None):
+        super().__init__(llm)
+        self.sandbox = sandbox or DockerSandbox()
+        self.workflow = CodingWorkflow(self.llm, sandbox=self.sandbox)
 
-CONTEXT:
-{context or '[none]'}
-""".strip()
-        return self.llm.generate(model, prompt)
+    def run(
+        self,
+        user_text: str,
+        context: str = "",
+        model: str = "",
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        res = self.execute_task(directive=user_text, context=context, model=model, metadata=metadata or {})
+        return res["answer"]
+
+    def execute_task(
+        self,
+        directive: str,
+        context: str,
+        model: str,
+        metadata: dict[str, Any],
+    ) -> Dict[str, Any]:
+        result = self.workflow.run(directive, context, model)
+        return {
+            "answer": result.final_explanation,
+            "execution_result": result.execution,
+            "evidence": [{"type": "code_execution", "code": result.code, "success": result.execution.success if result.execution else False}],
+            "warnings": [] if (result.execution and result.execution.success) else ["Sandbox execution encountered errors or fallback."],
+        }

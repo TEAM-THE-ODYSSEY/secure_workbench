@@ -1,3 +1,3 @@
-from .engine import Orchestrator
+from .engine import AgenticEngine, Orchestrator
 
-__all__ = ["Orchestrator"]
+__all__ = ["AgenticEngine", "Orchestrator"]
