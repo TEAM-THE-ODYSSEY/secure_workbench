@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useSession } from '../../context/SessionContext';
 import { ReasoningFlow } from '../../components/chat/ReasoningFlow';
+import { FormattedMessageResponse } from '../../components/chat/FormattedMessageResponse';
 
 export const AiAssistantView: React.FC = () => {
   const { activeSession, sendMessage, isProcessing, reasoningSteps } = useSession();
@@ -178,7 +179,7 @@ export const AiAssistantView: React.FC = () => {
                     )}
 
                     {/* Synthesized Response Text */}
-                    <p className="text-slate-700 leading-relaxed font-sans">{msg.text}</p>
+                    <FormattedMessageResponse content={msg.text} />
 
                     {/* Findings list if present */}
                     {msg.findings && msg.findings.length > 0 && (
@@ -325,7 +326,7 @@ export const AiAssistantView: React.FC = () => {
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Type your message here..."
+            placeholder="Ask anything about MRPL..."
             className="flex-1 bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none font-sans"
           />
 
@@ -350,7 +351,7 @@ export const AiAssistantView: React.FC = () => {
         {/* Subtext Disclaimer */}
         <p className="text-[11px] text-slate-400 font-sans text-center mt-2 flex items-center justify-center gap-1">
           <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />
-          <span>Responses are generated from trusted internal knowledge sources.</span>
+          <span>Responses are generated from trusted MRPL knowledge sources.</span>
         </p>
       </div>
 

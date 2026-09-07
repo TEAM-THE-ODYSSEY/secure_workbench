@@ -22,7 +22,7 @@ from rag.storage.postgres import db_manager, DocumentModel, ChunkModel, Ingestio
 
 # Import backend modules
 from backend import auth_store
-from backend.api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream
+from backend.api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin
 
 # Import Agent service (for reasoning endpoints)
 from agent.models import TaskRequest, AgentTaskResult
@@ -103,6 +103,9 @@ app.include_router(knowledge.router, prefix="/api")
 app.include_router(artifacts.router, prefix="/api")
 app.include_router(network.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
+app.include_router(agent_reason.router, prefix="/api")
+app.include_router(conversations.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 
 # ============================================================================

@@ -1,81 +1,95 @@
 from __future__ import annotations
 import os
-import sqlite3
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Literal, Optional
 from passlib.context import CryptContext
+
+from rag.storage.postgres import db_manager, UserModel, UserRole
 
 try:
     from backend.schemas.auth import User
 except ImportError:
     from schemas.auth import User
 
-# Password hashing context using bcrypt
+# Password hashing context using pbkdf2_sha256/bcrypt
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-
-DB_PATH = Path(
-    os.getenv(
-        "TASK_STORE_DB_PATH",
-        Path(__file__).resolve().parent / "workspace" / "tasks.db",
-    )
-)
 
 
 class UserAlreadyExistsError(Exception):
     pass
 
 
-def _get_connection() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            user_id TEXT PRIMARY KEY,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'user',
-            created_at TEXT NOT NULL
-        )
-        """
+def _user_from_model(model: UserModel) -> User:
+    role_str = "admin" if model.role in [UserRole.ADMIN.value, UserRole.SUPER_ADMIN.value, "admin"] else "user"
+    return User(
+        user_id=model.id,
+        username=model.employee_id,
+        role=role_str,
+        created_at=model.created_at.isoformat() if model.created_at else datetime.now(timezone.utc).isoformat(),
     )
-    # Check if 'role' column exists in case table was created previously
-    cursor = conn.cursor()
-    cursor.execute("PRAGMA table_info(users)")
-    columns = [col[1] for col in cursor.fetchall()]
-    if "role" not in columns:
-        conn.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
-        conn.commit()
 
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)"
-    )
-    return conn
+
+async def ensure_seed_users() -> None:
+    """Ensure default admin and operator user accounts exist in PostgreSQL."""
+    session = db_manager.get_session()
+    try:
+        # 1. Default admin user
+        admin = session.query(UserModel).filter(UserModel.employee_id == "admin").first()
+        if not admin:
+            admin_user = UserModel(
+                id="user_admin_001",
+                employee_id="admin",
+                name="System Administrator",
+                email="admin@mrpl.co.in",
+                department="IT & Sovereign Security",
+                password_hash=pwd_context.hash("admin123"),
+                role=UserRole.ADMIN.value,
+                is_active=True,
+            )
+            session.add(admin_user)
+
+        # 2. Default operator user
+        operator = session.query(UserModel).filter(UserModel.employee_id == "operator").first()
+        if not operator:
+            op_user = UserModel(
+                id="user_operator_001",
+                employee_id="operator",
+                name="Operations Engineer",
+                email="operator@mrpl.co.in",
+                department="Refinery Operations (CDU-1)",
+                password_hash=pwd_context.hash("operator123"),
+                role=UserRole.OPERATIONS_ENGINEER.value,
+                is_active=True,
+            )
+            session.add(op_user)
+
+        session.commit()
+    except Exception as e:
+        session.rollback()
+    finally:
+        session.close()
 
 
 async def has_admin_user() -> bool:
-    """Return True if at least one user with role='admin' exists."""
-    conn = _get_connection()
+    """Return True if at least one user with admin role exists."""
+    await ensure_seed_users()
+    session = db_manager.get_session()
     try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1")
-        return cursor.fetchone() is not None
+        count = session.query(UserModel).filter(UserModel.role.in_([UserRole.ADMIN.value, UserRole.SUPER_ADMIN.value, "admin"])).count()
+        return count > 0
     finally:
-        conn.close()
+        session.close()
 
 
 async def count_admin_users() -> int:
-    """Return count of users with role='admin'."""
-    conn = _get_connection()
+    """Return count of users with admin role."""
+    await ensure_seed_users()
+    session = db_manager.get_session()
     try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
-        row = cursor.fetchone()
-        return row[0] if row else 0
+        return session.query(UserModel).filter(UserModel.role.in_([UserRole.ADMIN.value, UserRole.SUPER_ADMIN.value, "admin"])).count()
     finally:
-        conn.close()
+        session.close()
 
 
 async def create_user(
@@ -83,82 +97,74 @@ async def create_user(
     password: str,
     role: Literal["admin", "user"] = "user",
 ) -> User:
-    """Create a new user with hashed password and role.
-
-    Role defaults to 'user' and cannot be set via public registration bodies.
-    Plaintext password is never stored or logged.
-    """
-    conn = _get_connection()
+    """Create a new user with hashed password and role in PostgreSQL."""
+    await ensure_seed_users()
+    session = db_manager.get_session()
     try:
-        user_id = str(uuid.uuid4())
-        password_hash = pwd_context.hash(password)
-        created_at = datetime.now(timezone.utc).isoformat()
-        try:
-            with conn:
-                conn.execute(
-                    """
-                    INSERT INTO users (user_id, username, password_hash, role, created_at)
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (user_id, username, password_hash, role, created_at),
-                )
-        except sqlite3.IntegrityError:
+        existing = session.query(UserModel).filter(UserModel.employee_id == username).first()
+        if existing:
             raise UserAlreadyExistsError(f"Username '{username}' is already taken")
-        return User(user_id=user_id, username=username, role=role, created_at=created_at)
+
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        password_hash = pwd_context.hash(password)
+        db_role = UserRole.ADMIN.value if role == "admin" else UserRole.EMPLOYEE.value
+
+        user_model = UserModel(
+            id=user_id,
+            employee_id=username,
+            name=username.capitalize(),
+            password_hash=password_hash,
+            role=db_role,
+            is_active=True,
+        )
+        session.add(user_model)
+        session.commit()
+        return _user_from_model(user_model)
+    except Exception as e:
+        session.rollback()
+        if isinstance(e, UserAlreadyExistsError):
+            raise e
+        raise e
     finally:
-        conn.close()
+        session.close()
 
 
 async def get_user_by_username(username: str) -> Optional[User]:
-    conn = _get_connection()
+    await ensure_seed_users()
+    session = db_manager.get_session()
     try:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT user_id, username, role, created_at FROM users WHERE username = ?",
-            (username,),
-        )
-        row = cursor.fetchone()
-        if row is None:
-            return None
-        return User(user_id=row[0], username=row[1], role=row[2], created_at=row[3])
+        user_model = session.query(UserModel).filter(UserModel.employee_id == username).first()
+        return _user_from_model(user_model) if user_model else None
     finally:
-        conn.close()
+        session.close()
 
 
 async def get_user_by_id(user_id: str) -> Optional[User]:
-    conn = _get_connection()
+    await ensure_seed_users()
+    session = db_manager.get_session()
     try:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT user_id, username, role, created_at FROM users WHERE user_id = ?",
-            (user_id,),
-        )
-        row = cursor.fetchone()
-        if row is None:
-            return None
-        return User(user_id=row[0], username=row[1], role=row[2], created_at=row[3])
+        user_model = session.query(UserModel).filter(UserModel.id == user_id).first()
+        return _user_from_model(user_model) if user_model else None
     finally:
-        conn.close()
+        session.close()
 
 
 async def verify_password(username: str, password: str) -> Optional[User]:
-    """Verify credentials without logging or exposing password.
-
-    Returns User with role if valid, None if invalid or user does not exist.
-    """
-    conn = _get_connection()
+    """Verify credentials against PostgreSQL user store."""
+    await ensure_seed_users()
+    session = db_manager.get_session()
     try:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT user_id, username, password_hash, role, created_at FROM users WHERE username = ?",
-            (username,),
-        )
-        row = cursor.fetchone()
-        if row is None:
+        user_model = session.query(UserModel).filter(UserModel.employee_id == username).first()
+        if not user_model or not user_model.is_active:
             return None
-        user_id, uname, pwd_hash, role, created_at = row
-        if not pwd_context.verify(password, pwd_hash):
+        if not pwd_context.verify(password, user_model.password_hash):
             return None
-        return User(user_id=user_id, username=uname, role=role, created_at=created_at)
+
+        user_model.last_login = datetime.now(timezone.utc)
+        session.commit()
+        return _user_from_model(user_model)
+    except Exception:
+        session.rollback()
+        return None
     finally:
-        conn.close()
+        session.close()

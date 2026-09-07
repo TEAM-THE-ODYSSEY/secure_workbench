@@ -92,14 +92,18 @@ class ContextPlanner:
             if tag_clean not in entities:
                 entities.append(tag_clean)
 
-        # Rule 0: Conversational greeting check
+        # Rule 0: General Chat & Conversational check (NO RAG)
         import re
-        is_doc = any(kw in obj_lower for kw in ["explain", "doc", "pdf", "file", "report"])
+        is_mrpl_specific = any(kw in obj_lower for kw in ["mrpl", "sop", "p-101a", "cdu", "oisd", "xv-101", "hv-101", "occupational health", "refinery report", "apex safety"])
+        is_explicit_file = request.scoped_file_id is not None or any(kw in obj_lower for kw in ["explain document", "this document", "this pdf", "this file", "attached file"])
+
         greeting_pattern = r'\b(hi|hai|hello|hey|greetings|good morning|good afternoon|good evening|how are you|how are u|how do you do|who are you|what can you do)\b'
-        is_greeting = not is_doc and (bool(re.search(greeting_pattern, obj_lower)) or (len(obj_lower) <= 4 and not any(c.isdigit() for c in obj_lower)))
-        if is_greeting:
+        is_greeting = bool(re.search(greeting_pattern, obj_lower)) or (len(obj_lower) <= 4 and not any(c.isdigit() for c in obj_lower))
+        is_general_q = any(kw in obj_lower for kw in ["2+2", "calculate", "what is a centrifugal pump", "how does a centrifugal pump work", "write a python", "explain what a refinery is"])
+
+        if (is_greeting or is_general_q) and not is_mrpl_specific and not is_explicit_file:
             return ContextPlan(
-                intent="GREETING",
+                intent="GENERAL_CHAT",
                 entities=[],
                 required_context=[],
                 tool_calls=[],
@@ -110,7 +114,10 @@ class ContextPlanner:
         tool_calls = []
         intent = "GENERAL_REASONING"
 
-        if "downstream" in obj_lower or "valve" in obj_lower or "topology" in obj_lower or "pid" in obj_lower or "isolate" in obj_lower:
+        if is_explicit_file:
+            intent = "DOCUMENT_ANALYSIS"
+            tool_calls.append({"tool": "knowledge_search", "query": request.objective})
+        elif "downstream" in obj_lower or "valve" in obj_lower or "topology" in obj_lower or "pid" in obj_lower or "isolate" in obj_lower:
             intent = "TOPOLOGY_QUERY"
             tag = entities[0] if entities else "P-101A"
             query_type = "ISOLATION_VALVES" if "valve" in obj_lower or "isolate" in obj_lower else "DOWNSTREAM"
@@ -126,13 +133,18 @@ class ContextPlanner:
             intent = "SOP_SYNTHESIS"
             query_term = entities[0] if entities else request.objective
             tool_calls.append({"tool": "knowledge_search", "query": f"{query_term} procedure steps operating limits"})
-        else:
+        elif is_mrpl_specific or "health" in obj_lower or "safety" in obj_lower:
+            intent = "KNOWLEDGE_AGENT"
             tool_calls.append({"tool": "knowledge_search", "query": request.objective})
+        else:
+            # Fallback for general reasoning without unnecessary RAG overhead
+            intent = "GENERAL_CHAT"
+            tool_calls = []
 
         return ContextPlan(
             intent=intent,
             entities=entities,
-            required_context=["equipment_spec", "maintenance_history", "sop", "pid_topology"],
+            required_context=["equipment_spec", "maintenance_history", "sop", "pid_topology"] if tool_calls else [],
             tool_calls=tool_calls,
             output_type=output_type,
         )

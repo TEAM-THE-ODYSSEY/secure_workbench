@@ -157,3 +157,7 @@ async def get_current_admin(user: User = Depends(get_current_user)) -> User:
         )
     return user
 
+
+get_current_admin_user = get_current_admin
+
+

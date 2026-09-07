@@ -106,15 +106,6 @@ class OrchestratorEngine:
         state.current_step = 0
         on_update(state)  # <--- Callback #1: PLANNING
 
-        # SIMPLE path execution
-        if state.task_type == "SIMPLE":
-            await asyncio.sleep(0.3)
-            state.status = "COMPLETED"
-            state.answer = "I am the MRPL Sovereign AI Assistant, operating locally and securely. How can I help you today?"
-            state.agent_stack = []
-            on_update(state)
-            return state
-
         # 2. RUNNING State
         state.status = "RUNNING"
         state.current_step = 1

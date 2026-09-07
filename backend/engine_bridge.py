@@ -97,9 +97,13 @@ async def _execute(task_id: str) -> None:
 
     # Real AI Orchestrator Pathway with live on_update callback
     try:
-        try:
-            from agentic_engine import orchestrator
-        except ImportError:
+        import importlib.util
+        orch_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "agentic_engine", "orchestrator.py"))
+        if os.path.exists(orch_path):
+            spec = importlib.util.spec_from_file_location("agentic_orchestrator_mod", orch_path)
+            orchestrator = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(orchestrator)
+        else:
             import orchestrator
 
         def _on_update(updated_state: TaskState) -> None:
@@ -107,6 +111,8 @@ async def _execute(task_id: str) -> None:
 
         await orchestrator.run(state, on_update=_on_update)
     except Exception as ex:
+        import traceback
+        print(f"[ENGINE_BRIDGE_ERROR] {ex}\n{traceback.format_exc()}")
         # Fallback to path if unexpected execution error
         if "fail" in msg_lower:
             await _execute_path_c(state)

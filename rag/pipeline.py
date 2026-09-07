@@ -309,20 +309,37 @@ class RAGPipeline:
     def _ensure_seeded(self) -> None:
         """Seed baseline refinery knowledge chunks if in-memory store is unpopulated."""
         if not PgVectorStore._global_vector_store:
-            try:
-                self.ingestion.ingest_bytes_sync(
-                    content_bytes=b"MRPL Health and Safety Report outlines refinery safety recognitions (National Safety Council Apex Safety Award, OISD Award), accident-free man-hour milestones, H2S monitor rules, and SCBA compliance across CDU-1 processing units.",
-                    filename="Health_And_Safety.txt",
-                    source_id="seed_initial_safety",
-                )
-                self.ingestion.ingest_bytes_sync(
-                    content_bytes=b"Crude Feed Charge Pump P-101A operates in CDU-1. Normal operating vibration limit is below 4.0 mm/s. Maximum operating temperature 345 C. In case of elevated vibration (6.8 mm/s), switch to standby pump P-101B and isolate XV-101.",
-                    filename="SOP-23_P101A.txt",
-                    source_id="seed_initial_sop23",
-                )
-                logger.info("Auto-seeded baseline Knowledge Base documents into shared RAG store.")
-            except Exception as e:
-                logger.warning(f"Could not auto-seed baseline documents: {e}")
+            for seed in [
+                {
+                    "content": b"""Occupational Health at MRPL:
+- All safety measures required at petroleum refinery are implemented and maintained as per the norms prescribed by Chief Controller of Explosives, Govt. of India; Oil Industry Safety Directorate; Factories Act; etc. as well as international standard practices.
+- Work environment, Air quality, Noise and Safety parameters (occupational exposure) monitoring at regular intervals are being carried out.
+- Awareness programmes about occupational Health & safety aspects at petroleum refinery (unit wise), potential accidents and the associated risks etc.
+- Regular Training Programmes are conducted for all employees on Health, Safety, firefighting, necessity and use of personal protective equipment, Emergency mock drills etc.
+- Safety and Environment Audits are conducted regularly at refinery by external agencies including Oil Industry Safety Directorate. The recommendations emerging out of audit studies are implemented on priority basis.""",
+                    "filename": "Occupational_Health_MRPL.txt",
+                    "source_id": "seed_initial_occupational_health",
+                },
+                {
+                    "content": b"MRPL Health and Safety Report outlines refinery safety recognitions (National Safety Council Apex Safety Award, OISD Award), accident-free man-hour milestones, H2S monitor rules, and SCBA compliance across CDU-1 processing units.",
+                    "filename": "Health_And_Safety.txt",
+                    "source_id": "seed_initial_safety",
+                },
+                {
+                    "content": b"Crude Feed Charge Pump P-101A operates in CDU-1. Normal operating vibration limit is below 4.0 mm/s. Maximum operating temperature 345 C. In case of elevated vibration (6.8 mm/s), switch to standby pump P-101B and isolate XV-101.",
+                    "filename": "SOP-23_P101A.txt",
+                    "source_id": "seed_initial_sop23",
+                },
+            ]:
+                try:
+                    self.ingestion.ingest_bytes_sync(
+                        content_bytes=seed["content"],
+                        filename=seed["filename"],
+                        source_id=seed["source_id"],
+                    )
+                except Exception as ex:
+                    logger.debug(f"Seed document '{seed['filename']}' already present or skipped: {ex}")
+            logger.info("Baseline Knowledge Base seeding check complete.")
 
     def ingest_bytes_async(
         self,

@@ -5,7 +5,8 @@ structured reasoning output, execution trace record, and final response API mode
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -17,6 +18,38 @@ class TaskRequest(BaseModel):
     document_type: Optional[str] = Field(default=None, description="Optional document type filter")
     version_constraint: Optional[str] = Field(default=None, description="Optional version constraint")
     allow_fallback: bool = Field(default=True, description="Allow fallback model or direct synthesis")
+    scoped_file_id: Optional[str] = Field(default=None, description="Optional uploaded file ID for small-base RAG")
+    attached_file: Optional[Dict[str, Any]] = Field(default=None, description="Metadata of attached uploaded document")
+    extracted_text: Optional[str] = Field(default=None, description="Raw or parsed text of attached uploaded document")
+
+
+class IntentType(str, Enum):
+    GENERAL_CHAT = "GENERAL_CHAT"
+    KNOWLEDGE_AGENT = "KNOWLEDGE_AGENT"
+    PID_AGENT = "PID_AGENT"
+    FAILURE_ANALYSIS = "FAILURE_ANALYSIS"
+    DOCUMENT_ANALYSIS = "DOCUMENT_ANALYSIS"
+    DATA_ANALYSIS = "DATA_ANALYSIS"
+    REPORT_GENERATION = "REPORT_GENERATION"
+
+
+class CapabilityType(str, Enum):
+    KNOWLEDGE_SEARCH = "KNOWLEDGE_SEARCH"
+    PID_ANALYSIS = "PID_ANALYSIS"
+    DOCUMENT_PARSER = "DOCUMENT_PARSER"
+    DATA_CALCULATOR = "DATA_CALCULATOR"
+    REPORT_BUILDER = "REPORT_BUILDER"
+    DIRECT_LLM = "DIRECT_LLM"
+
+
+class RoutingDecision(BaseModel):
+    """Structured Pydantic validation for Main Agent tool & capability routing."""
+    intent: IntentType
+    entities: List[str] = Field(default_factory=list)
+    required_capabilities: List[CapabilityType] = Field(default_factory=list)
+    required_context: List[str] = Field(default_factory=list)
+    scoped_file_id: Optional[str] = None
+    output_type: Literal["TEXT", "PDF"] = "TEXT"
 
 
 class Citation(BaseModel):
@@ -34,13 +67,14 @@ class EvidenceChunk(BaseModel):
     """Structured evidence chunk retrieved by KnowledgeTool or PIDTool."""
     document_id: str
     title: str
-    version: str
-    section: str
+    version: str = "1.0"
+    section: str = "General"
     page: Optional[int] = None
     entity_id: Optional[str] = None
     trust_level: str = "TRUSTED"
     content: str
-    citation: Citation
+    citation: Optional[Citation] = None
+
 
 
 class ProcedureStep(BaseModel):

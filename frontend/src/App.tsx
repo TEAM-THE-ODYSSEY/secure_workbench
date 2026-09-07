@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const [adminViewMode, setAdminViewMode] = React.useState<'admin' | 'user'>('admin');
+  const [adminViewMode, setAdminViewMode] = React.useState<'admin' | 'user'>('user');
 
   if (isLoading) {
     return (

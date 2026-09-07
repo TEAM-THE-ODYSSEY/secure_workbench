@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, ChevronDown, ShieldCheck, LogOut, LayoutDashboard } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export interface HeaderProps {
@@ -33,26 +33,19 @@ export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin }) => {
       {/* Left: ONGC MRPL Logo & Branding */}
       <div className="flex items-center gap-3">
         {/* MRPL Green Emblem Icon */}
-        <div className="w-9 h-9 rounded-lg bg-[#1b4332] text-white flex items-center justify-center font-bold text-xs shadow-sm border border-emerald-800/40">
-          <div className="text-center leading-none">
-            <span className="block text-[8px] tracking-tighter opacity-80">ONGC</span>
-            <span className="block font-black text-xs">MRPL</span>
-          </div>
+        <div className="w-9 h-9 rounded-full bg-[#1b4332] text-white flex items-center justify-center shadow-sm border border-emerald-800/40">
+          <span className="font-black text-xs">MRPL</span>
         </div>
 
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="font-extrabold text-slate-800 text-xs tracking-wide font-sans uppercase">
-              Mangalore Refinery and Petrochemicals Limited
+            <h1 className="font-extrabold text-slate-800 text-sm tracking-wide font-sans">
+              <span className="font-black">MRPL</span> Sovereign AI Workbench
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-900 text-sm font-sans">
-              Sovereign AI Workbench
-            </span>
-            <span className="text-xs text-slate-400 hidden md:inline">|</span>
             <span className="text-xs text-slate-500 hidden md:inline">
-              {user?.role === 'admin' ? 'Admin Panel' : 'Ask. Analyze. Get Trusted Answers.'}
+              Ask. Analyze. Get Trusted Answers.
             </span>
           </div>
         </div>
@@ -61,11 +54,11 @@ export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin }) => {
       {/* Center: AIR-GAPPED Security Pill */}
       <div className="hidden lg:flex flex-col items-center">
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+          <div className="w-2 h-2 rounded-full bg-emerald-500" />
           <span className="font-extrabold text-xs tracking-wider">AIR-GAPPED</span>
         </div>
         <span className="text-[10px] text-slate-400 font-sans mt-0.5">
-          Secure • Private • For a Safer Tomorrow
+          Secure • Private • MRPL
         </span>
       </div>
 
@@ -75,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin }) => {
         <button className="relative p-2 rounded-full hover:bg-slate-100 text-slate-600 transition-colors">
           <Bell className="w-4 h-4" />
           <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center border border-white">
-            3
+            5
           </span>
         </button>
 

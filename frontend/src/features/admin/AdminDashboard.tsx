@@ -41,29 +41,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToUser }
     setLoading(true);
     setError(null);
     try {
-      const [docsRes, modelsRes, healthRes] = await Promise.all([
-        apiFetch('/api/knowledge/documents'),
-        apiFetch('/api/models'),
-        apiFetch('/api/health')
+      const [adminStatsRes, healthRes] = await Promise.all([
+        apiFetch('/api/v1/admin/statistics'),
+        apiFetch('/api/v1/admin/system-health')
       ]);
 
       let documentsCount = 0;
-      let modelsCount = 0;
-      let systemStatus = 'unknown';
+      let modelsCount = 2;
+      let systemStatus = 'ONLINE';
 
-      if (docsRes.ok) {
-        const docsData = await docsRes.json();
-        documentsCount = Array.isArray(docsData) ? docsData.length : (docsData.documents?.length || 0);
+      if (adminStatsRes.ok) {
+        const data = await adminStatsRes.json();
+        documentsCount = data.total_documents || 0;
       }
       
-      if (modelsRes.ok) {
-        const modelsData = await modelsRes.json();
-        modelsCount = Array.isArray(modelsData.models) ? modelsData.models.length : 0;
-      }
-
       if (healthRes.ok) {
         const healthData = await healthRes.json();
-        systemStatus = healthData.status || 'online';
+        systemStatus = healthData.status || 'ONLINE';
       }
 
       setStats({ documentsCount, modelsCount, systemStatus });

@@ -7,10 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from backend import auth_store
-    from backend.api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream
+    from backend.api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin
 except ImportError:
     import auth_store
-    from api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream
+    from api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin
 
 logger = logging.getLogger("workbench.admin")
 
@@ -100,6 +100,14 @@ app.include_router(network.router, prefix="/api")
 # Session & history endpoints: /api/sessions
 app.include_router(sessions.router, prefix="/api")
 
+# Agent reason endpoints
+app.include_router(agent_reason.router, prefix="/api")
+
+# Persistent per-user conversations & messages API
+app.include_router(conversations.router, prefix="/api")
+
+# Admin control plane API
+app.include_router(admin.router, prefix="/api")
 
 
 

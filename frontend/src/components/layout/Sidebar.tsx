@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, MessageSquare, MoreHorizontal, HelpCircle, Settings, Trash2 } from 'lucide-react';
+import { Plus, Search, FileText, MoreHorizontal, HelpCircle, Settings, Trash2 } from 'lucide-react';
 import { useSession } from '../../context/SessionContext';
 
 export const Sidebar: React.FC = () => {
@@ -38,56 +38,184 @@ export const Sidebar: React.FC = () => {
           />
         </div>
 
-        {/* Conversation Sessions List */}
-        <div className="space-y-0.5">
-          {filteredSessions.map((s) => {
-            const isActive = activeSessionId === s.id;
-            return (
-              <div
-                key={s.id}
-                onClick={() => setActiveSessionId(s.id)}
-                className={`w-full relative px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-between group ${
-                  isActive
-                    ? 'bg-slate-200/80 text-slate-900 font-bold shadow-2xs'
-                    : 'text-slate-700 hover:bg-slate-200/50 hover:text-slate-900 font-medium'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-slate-800' : 'text-slate-500'}`} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs leading-snug">{s.title}</p>
-                    <p className="text-[10px] font-mono text-slate-400 leading-tight">{s.time}</p>
-                  </div>
-                </div>
+        {/* Conversation Sessions List Grouped by Section */}
+        <div className="space-y-4 pt-1">
+          {/* Section 1: Today */}
+          <div>
+            <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1.5 font-sans">
+              Today
+            </h4>
+            <div className="space-y-0.5">
+              {filteredSessions.slice(0, 3).map((s) => {
+                const isActive = activeSessionId === s.id;
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => setActiveSessionId(s.id)}
+                    className={`w-full relative px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-between group ${
+                      isActive
+                        ? 'bg-emerald-50 text-slate-900 font-bold border border-emerald-200/80 shadow-2xs'
+                        : 'text-slate-700 hover:bg-slate-200/50 hover:text-slate-900 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className={`p-1 rounded ${isActive ? 'bg-emerald-100 text-emerald-800' : 'text-slate-500'}`}>
+                        <FileText className="w-3.5 h-3.5 shrink-0" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs leading-snug">{s.title}</p>
+                        <p className="text-[10px] font-mono text-slate-400 leading-tight">{s.time}</p>
+                      </div>
+                    </div>
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveMenuId(activeMenuId === s.id ? null : s.id);
-                  }}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-slate-900 transition-opacity"
-                >
-                  <MoreHorizontal className="w-3.5 h-3.5" />
-                </button>
-
-                {activeMenuId === s.id && (
-                  <div className="absolute right-2 top-8 z-50 bg-white border border-slate-200 shadow-md rounded-lg p-1">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteSession(s.id);
-                        setActiveMenuId(null);
+                        setActiveMenuId(activeMenuId === s.id ? null : s.id);
                       }}
-                      className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded font-medium w-full text-left"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-slate-900 transition-opacity"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Delete
+                      <MoreHorizontal className="w-3.5 h-3.5" />
                     </button>
+
+                    {activeMenuId === s.id && (
+                      <div className="absolute right-2 top-8 z-50 bg-white border border-slate-200 shadow-md rounded-lg p-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSession(s.id);
+                            setActiveMenuId(null);
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded font-medium w-full text-left"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section 2: Yesterday */}
+          {filteredSessions.length > 3 && (
+            <div>
+              <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1.5 font-sans">
+                Yesterday
+              </h4>
+              <div className="space-y-0.5">
+                {filteredSessions.slice(3, 5).map((s) => {
+                  const isActive = activeSessionId === s.id;
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => setActiveSessionId(s.id)}
+                      className={`w-full relative px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-between group ${
+                        isActive
+                          ? 'bg-emerald-50 text-slate-900 font-bold border border-emerald-200/80 shadow-2xs'
+                          : 'text-slate-700 hover:bg-slate-200/50 hover:text-slate-900 font-medium'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <FileText className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs leading-snug">{s.title}</p>
+                          <p className="text-[10px] font-mono text-slate-400 leading-tight">{s.time}</p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId(activeMenuId === s.id ? null : s.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-slate-900 transition-opacity"
+                      >
+                        <MoreHorizontal className="w-3.5 h-3.5" />
+                      </button>
+
+                      {activeMenuId === s.id && (
+                        <div className="absolute right-2 top-8 z-50 bg-white border border-slate-200 shadow-md rounded-lg p-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteSession(s.id);
+                              setActiveMenuId(null);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded font-medium w-full text-left"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          )}
+
+          {/* Section 3: Previous 7 Days */}
+          {filteredSessions.length > 5 && (
+            <div>
+              <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1.5 font-sans">
+                Previous 7 Days
+              </h4>
+              <div className="space-y-0.5">
+                {filteredSessions.slice(5).map((s) => {
+                  const isActive = activeSessionId === s.id;
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => setActiveSessionId(s.id)}
+                      className={`w-full relative px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-between group ${
+                        isActive
+                          ? 'bg-emerald-50 text-slate-900 font-bold border border-emerald-200/80 shadow-2xs'
+                          : 'text-slate-700 hover:bg-slate-200/50 hover:text-slate-900 font-medium'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <FileText className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs leading-snug">{s.title}</p>
+                          <p className="text-[10px] font-mono text-slate-400 leading-tight">{s.time}</p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId(activeMenuId === s.id ? null : s.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-slate-900 transition-opacity"
+                      >
+                        <MoreHorizontal className="w-3.5 h-3.5" />
+                      </button>
+
+                      {activeMenuId === s.id && (
+                        <div className="absolute right-2 top-8 z-50 bg-white border border-slate-200 shadow-md rounded-lg p-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteSession(s.id);
+                              setActiveMenuId(null);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded font-medium w-full text-left"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
       </div>
@@ -112,12 +240,13 @@ export const Sidebar: React.FC = () => {
           
           <div className="relative z-10 space-y-1">
             <h4 className="font-extrabold text-xs leading-tight tracking-wide text-white">
-              Cleaner Energy <br /> Stronger Tomorrow
+              A Safer & Cleaner <br /> Tomorrow
             </h4>
             <div className="flex items-center gap-1.5 pt-1">
               <div className="w-4 h-4 rounded bg-white text-[#1b4332] font-black text-[9px] flex items-center justify-center">
                 M
               </div>
+              <span className="text-emerald-400 text-xs font-bold">✓</span>
               <span className="text-[10px] font-extrabold tracking-widest text-emerald-200 uppercase">
                 MRPL
               </span>

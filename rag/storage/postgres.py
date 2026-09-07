@@ -97,6 +97,16 @@ class FindingSeverity(str, PyEnum):
     CRITICAL = "CRITICAL"
 
 
+class UserRole(str, PyEnum):
+    EMPLOYEE = "EMPLOYEE"
+    MAINTENANCE_ENGINEER = "MAINTENANCE_ENGINEER"
+    OPERATIONS_ENGINEER = "OPERATIONS_ENGINEER"
+    SAFETY_ENGINEER = "SAFETY_ENGINEER"
+    PLANT_MANAGER = "PLANT_MANAGER"
+    ADMIN = "ADMIN"
+    SUPER_ADMIN = "SUPER_ADMIN"
+
+
 # ============================================================
 # ORM MODELS
 # ============================================================
@@ -310,6 +320,123 @@ class MetadataModel(Base):
     value = Column(Text, nullable=False)
 
 
+class UserModel(Base):
+    """Authenticated user account with RBAC classification."""
+    __tablename__ = "users"
+
+    id = Column(String(255), primary_key=True)
+    employee_id = Column(String(128), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=True)
+    department = Column(String(128), nullable=True)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(64), nullable=False, default=UserRole.EMPLOYEE.value, index=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_login = Column(DateTime(timezone=True), nullable=True)
+
+    conversations = relationship("ConversationModel", back_populates="user", cascade="all, delete-orphan")
+
+
+class ConversationModel(Base):
+    """User conversation session for persistent chat tracking."""
+    __tablename__ = "conversations"
+
+    id = Column(String(255), primary_key=True)
+    user_id = Column(String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(255), nullable=False, default="New Conversation")
+    status = Column(String(32), default="ACTIVE", index=True)  # ACTIVE, ARCHIVED, DELETED
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("UserModel", back_populates="conversations")
+    messages = relationship("MessageModel", back_populates="conversation", cascade="all, delete-orphan")
+    agent_tasks = relationship("AgentTaskModel", back_populates="conversation", cascade="all, delete-orphan")
+
+
+class MessageModel(Base):
+    """Individual chat message within a conversation session."""
+    __tablename__ = "messages"
+
+    id = Column(String(255), primary_key=True)
+    conversation_id = Column(String(255), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(32), nullable=False)  # USER, ASSISTANT, SYSTEM
+    content = Column(Text, nullable=False)
+    metadata_json = Column(JSON, default=dict)  # citations, steps, reasoning_duration
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    conversation = relationship("ConversationModel", back_populates="messages")
+    attachments = relationship("MessageAttachmentModel", back_populates="message", cascade="all, delete-orphan")
+
+
+class MessageAttachmentModel(Base):
+    """File attachment bound to a chat message (small-base RAG)."""
+    __tablename__ = "message_attachments"
+
+    id = Column(String(255), primary_key=True)
+    message_id = Column(String(255), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False, index=True)
+    file_id = Column(String(255), nullable=False)
+    filename = Column(String(255), nullable=False)
+    mime_type = Column(String(128), nullable=False)
+    size_bytes = Column(Integer, default=0)
+    storage_uri = Column(Text, nullable=True)
+    extracted_text = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    message = relationship("MessageModel", back_populates="attachments")
+
+
+class AgentTaskModel(Base):
+    """Agent execution task telemetry."""
+    __tablename__ = "agent_tasks"
+
+    id = Column(String(255), primary_key=True)
+    conversation_id = Column(String(255), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    intent = Column(String(64), nullable=False, index=True)
+    active_agent = Column(String(64), nullable=False)
+    status = Column(String(32), nullable=False, default="RUNNING", index=True)
+    model = Column(String(64), default="Qwen3-4B")
+    fallback_used = Column(Boolean, default=False)
+    verification_status = Column(String(32), default="PASSED")
+    latency_ms = Column(Float, default=0.0)
+    started_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    conversation = relationship("ConversationModel", back_populates="agent_tasks")
+    events = relationship("AgentEventModel", back_populates="task", cascade="all, delete-orphan")
+
+
+class AgentEventModel(Base):
+    """Granular execution trace event for agent task lifecycle."""
+    __tablename__ = "agent_events"
+
+    id = Column(String(255), primary_key=True)
+    task_id = Column(String(255), ForeignKey("agent_tasks.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type = Column(String(64), nullable=False)
+    agent_name = Column(String(64), nullable=False)
+    status = Column(String(32), nullable=False)
+    metadata_json = Column(JSON, default=dict)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    task = relationship("AgentTaskModel", back_populates="events")
+
+
+class ReportModel(Base):
+    """Generated PDF report artifact record."""
+    __tablename__ = "reports"
+
+    id = Column(String(255), primary_key=True)
+    task_id = Column(String(255), ForeignKey("agent_tasks.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    storage_uri = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 class AuditRecordModel(Base):
     """Append-only audit trail for all system actions."""
     __tablename__ = "audit_records"
@@ -320,6 +447,7 @@ class AuditRecordModel(Base):
     document_id = Column(String(255), nullable=True, index=True)
     details_json = Column(JSON, default=dict)
     timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+
 
 
 # ============================================================
