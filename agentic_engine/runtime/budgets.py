@@ -42,10 +42,10 @@ class ExecutionBudget:
         else:
             return cls(
                 max_tokens=4096,
-                max_iterations=2,
-                max_retries=2,
-                max_tool_calls=6,
-                max_latency_seconds=60.0,
+                max_iterations=3,
+                max_retries=3,
+                max_tool_calls=8,
+                max_latency_seconds=90.0,
                 max_context_chars=16384,
             )
 

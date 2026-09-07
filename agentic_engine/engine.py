@@ -111,8 +111,11 @@ class AgenticEngine:
         chat_id: Optional[str] = None,
         session_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Canonical entry point executing the non-negotiable 16-step architecture."""
-        active_chat_id = chat_id or session_id or self.new_chat()
+        active_chat_id = chat_id or session_id
+        if not active_chat_id:
+            active_chat_id = self.new_chat()
+        elif not self.store.exists(active_chat_id):
+            self.store.create_chat(title=f"Chat {active_chat_id[:8]}", cid=active_chat_id)
         request_id = f"req_{uuid.uuid4().hex[:8]}"
         trace = Tracer.start_trace(request_id=request_id)
         span_total = trace.start_span("total_execution")

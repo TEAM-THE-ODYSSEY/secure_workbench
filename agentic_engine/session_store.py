@@ -23,10 +23,11 @@ class SessionStore:
         c.row_factory = sqlite3.Row
         return c
 
-    def create_chat(self, title="New Chat"):
-        cid, t = str(uuid.uuid4()), now()
+    def create_chat(self, title="New Chat", cid=None):
+        cid = cid or str(uuid.uuid4())
+        t = now()
         with self._db() as c:
-            c.execute("INSERT INTO chats VALUES(?,?,?,?)",(cid,title,t,t))
+            c.execute("INSERT OR IGNORE INTO chats VALUES(?,?,?,?)",(cid,title,t,t))
         return cid
 
     def exists(self, cid):
@@ -35,7 +36,7 @@ class SessionStore:
 
     def add(self,cid,role,content,metadata=None):
         if not self.exists(cid):
-            raise ValueError("Unknown chat ID")
+            self.create_chat(title=f"Chat {cid[:8]}", cid=cid)
         t=now()
         with self._db() as c:
             c.execute("INSERT INTO messages(chat_id,role,content,metadata,created_at) VALUES(?,?,?,?,?)",

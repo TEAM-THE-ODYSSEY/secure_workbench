@@ -40,6 +40,12 @@ class ExecutionCoordinator:
     ) -> Dict[str, Any]:
         state_tracker = StateTracker(ExecutionState.PLANNED)
         budget = ExecutionBudget.for_complexity(plan.complexity)
+        if plan.max_iterations > budget.max_iterations:
+            budget.max_iterations = plan.max_iterations
+        if plan.max_retries > budget.max_retries:
+            budget.max_retries = plan.max_retries
+        if plan.max_tool_calls > budget.max_tool_calls:
+            budget.max_tool_calls = plan.max_tool_calls
         tracker = BudgetTracker(budget)
 
         # 1. State: AUTHORIZED
