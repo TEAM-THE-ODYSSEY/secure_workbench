@@ -133,8 +133,8 @@ class ModelSelector:
                 complexity=complexity,
             )
         except ModelCapabilityUnavailableError:
-            # If vision model unavailable for PID, allow fall back to general document reasoning if text-only
-            if task_type.lower() == "pid":
+            # If specialized model is unavailable, allow fall back to general reasoning model
+            if task_type.lower() in {"pid", "mathematical", "document", "coding", "multimodal"}:
                 return self.select_by_capabilities(
                     required_capabilities={ModelCapability.REASONING.value},
                     required_modalities=["text"],

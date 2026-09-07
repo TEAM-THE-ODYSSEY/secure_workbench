@@ -169,11 +169,11 @@ Return exactly this shape:
                 agent = "coding"
                 domain = "general"
                 tools = ["python_sandbox"]
-                validator_chain = ["syntax", "code", "output"]
+                validator_chain = ["code", "syntax", "output"]
                 model_policy = "code_generation"
             elif math:
                 task_type = "mathematical"
-                agent = "mathematics"
+                agent = "mathematical"
                 domain = "general"
                 tools = []
                 validator_chain = ["math", "output"]
@@ -262,10 +262,13 @@ Return exactly this shape:
         task_type = str(data.get("task_type", det.task_type)).lower()
         if task_type not in {"reasoning", "mathematical", "coding", "document", "multimodal", "pid"}:
             task_type = det.task_type
+        # If deterministic rules resolved specialized domain (math/coding/pid), do not let LLM downgrade to generic reasoning
+        if det.task_type in {"mathematical", "coding", "pid"} and task_type == "reasoning":
+            task_type = det.task_type
 
         agent = str(data.get("agent", det.agent)).lower()
         allowed, _ = self.policy.validate_agent(agent)
-        if not allowed:
+        if not allowed or (det.task_type in {"mathematical", "coding", "pid"} and agent == "reasoning"):
             agent = det.agent
 
         output_type = str(data.get("output_type", det.output_type)).lower()
@@ -276,9 +279,12 @@ Return exactly this shape:
         tools = list(data.get("tools", det.tools))
         tools = self.policy.filter_allowed_tools(agent, tools)
 
-        validator_chain = data.get("validator_chain") or det.validator_chain
-        if isinstance(validator_chain, str):
-            validator_chain = [validator_chain]
+        if det.task_type in {"mathematical", "coding", "pid"}:
+            validator_chain = det.validator_chain
+        else:
+            validator_chain = data.get("validator_chain") or det.validator_chain
+            if isinstance(validator_chain, str):
+                validator_chain = [validator_chain]
 
         return ExecutionPlan(
             plan_id=plan_id,

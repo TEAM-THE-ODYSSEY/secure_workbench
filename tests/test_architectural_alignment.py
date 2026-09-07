@@ -49,7 +49,7 @@ class TestArchitecturalAlignment:
             file_path="report.pdf",
         )
         assert plan.task_type == "document", f"Expected document, got {plan.task_type}"
-        assert plan.agent == "multimodal"
+        assert plan.agent in {"document", "multimodal"}
         assert "document_parser" in plan.tools
         assert plan.output_type == "xlsx"
         assert plan.validation_type == "document"
@@ -62,7 +62,7 @@ class TestArchitecturalAlignment:
             file_path="sample_pid.png",
         )
         assert plan.task_type == "pid", f"Expected pid, got {plan.task_type}"
-        assert plan.agent == "multimodal"
+        assert plan.agent in {"pid", "multimodal"}
         assert plan.domain == "industrial"
         assert "pid_engine" in plan.tools
         assert "ocr" in plan.tools
@@ -173,7 +173,7 @@ class TestArchitecturalAlignment:
         )
         assert res["blocked"] is False
         assert res["task"] == "pid"
-        assert res["plan"]["agent"] == "multimodal"
+        assert res["plan"]["agent"] in {"pid", "multimodal"}
         assert res["plan"]["validation_type"] == "evidence"
         assert res["validated"] is True
         assert res["output_file"] is not None

@@ -43,6 +43,24 @@ ModelInfo = ModelProfile
 CANONICAL_MODEL_PROFILES: List[ModelProfile] = [
     # --- Reasoning Models ---
     ModelProfile(
+        model_id="tinyllama:latest",
+        name="tinyllama:latest",
+        provider="local",
+        backend="ollama",
+        capabilities={
+            ModelCapability.REASONING.value,
+            ModelCapability.ANALYSIS.value,
+        },
+        modalities=["text"],
+        context_length=2048,
+        parameter_count="1.1B",
+        quantization="q4_k_m",
+        vram_requirement_mb=1024,
+        quality=6,
+        speed=10,
+        priority=5,
+    ),
+    ModelProfile(
         model_id="qwen2.5:7b",
         name="qwen2.5:7b",
         provider="local",

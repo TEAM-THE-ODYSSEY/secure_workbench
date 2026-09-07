@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 from .agents import (
     CodingAgent,
     DocumentAgent,
+    KnowledgeAgent,
     MathematicalAgent,
     MultimodalAgent,
     PIDAgent,
@@ -67,6 +68,7 @@ class AgenticEngine:
             "mathematical": MathematicalAgent(self.llm),  # Alias
             "coding": CodingAgent(self.llm),
             "document": DocumentAgent(self.llm),
+            "knowledge": KnowledgeAgent(self.llm, self.retriever),
             "multimodal": MultimodalAgent(self.llm),
             "pid": PIDAgent(self.llm),
         }
@@ -84,12 +86,18 @@ class AgenticEngine:
 
     def _run_validator_chain(
         self,
-        chain_name_or_first: str,
+        chain_name_or_list: Any,
         output: str,
         user_request: str,
         execution_result: Any = None,
     ) -> ValidationResult:
-        chain = build_validator_chain([chain_name_or_first])
+        if isinstance(chain_name_or_list, (list, tuple)):
+            names = list(chain_name_or_list)
+        elif isinstance(chain_name_or_list, str):
+            names = [chain_name_or_list]
+        else:
+            names = ["text"]
+        chain = build_validator_chain(names)
         return chain.validate(
             output=output,
             user_request=user_request,
@@ -208,6 +216,7 @@ class AgenticEngine:
                 "blocked": False,
                 "task": plan.task_type,
                 "task_type": plan.task_type,
+                "plan": plan.to_dict(),
                 "complexity": plan.complexity,
                 "capabilities": plan.capabilities,
                 "agent": plan.agent,
@@ -217,6 +226,7 @@ class AgenticEngine:
                 "error": str(mc_err),
                 "validated": False,
                 "artifacts": {},
+                "trace": trace.to_dict(),
             }
 
         span_exec.finish(status=res.get("status", "COMPLETED"))
@@ -247,8 +257,20 @@ class AgenticEngine:
         res["trace_id"] = trace.trace_id
         res["blocked"] = False
         res["task"] = plan.task_type
+        res["plan"] = plan.to_dict()
         res["validated"] = res.get("validation", {}).get("valid", False)
-        res["trace"] = trace.to_dict()
+
+        # Attach hardware / resource telemetry to trace
+        snap = self.resources.get_snapshot()
+        trace_data = trace.to_dict()
+        trace_data["resources"] = {
+            "has_cuda": snap.has_cuda,
+            "vram_available_mb": snap.vram_available_mb,
+            "vram_total_mb": snap.vram_total_mb,
+            "ram_available_mb": snap.ram_available_mb,
+            "cpu_percent": snap.cpu_percent,
+        }
+        res["trace"] = trace_data
 
         return res
 

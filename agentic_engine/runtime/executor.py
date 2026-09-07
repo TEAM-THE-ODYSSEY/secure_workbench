@@ -120,7 +120,7 @@ class ExecutionCoordinator:
                 # Validation Phase
                 state_tracker.transition_to(ExecutionState.VALIDATING, "Running validator chain")
                 validation_result = self.validator_runner_fn(
-                    plan.validator_chain[0] if plan.validator_chain else "text",
+                    plan.validator_chain if plan.validator_chain else ["text"],
                     final_answer,
                     context.task_context,
                     execution_result,
@@ -197,6 +197,7 @@ class ExecutionCoordinator:
             warnings=warnings,
             retry_count=retry_count,
             replan_count=replan_count,
+            model_switch_count=model_switch_count,
         )
 
     @staticmethod
@@ -214,6 +215,7 @@ class ExecutionCoordinator:
         warnings: Optional[List[str]] = None,
         retry_count: int = 0,
         replan_count: int = 0,
+        model_switch_count: int = 0,
     ) -> Dict[str, Any]:
         return {
             "status": status,
@@ -232,6 +234,7 @@ class ExecutionCoordinator:
                 "iterations": tracker.iterations_used,
                 "retries": retry_count,
                 "replans": replan_count,
+                "model_switches": model_switch_count,
                 "tool_calls": tracker.tool_calls_used,
             },
             "answer": answer,
