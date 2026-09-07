@@ -1,14 +1,12 @@
-"""
-Semantic chunker for splitting text along semantic sentence boundaries.
-"""
-
+from __future__ import annotations
 from abc import ABC, abstractmethod
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from pydantic import BaseModel, Field
 
-from rag.enrichment.metadata import DocumentMetadata
+if TYPE_CHECKING:
+    from rag.enrichment.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
 

@@ -22,29 +22,33 @@ You are the planning brain of a local Agentic AI Workbench.
 You do NOT solve the user's task. You decide how the system should solve it.
 Return ONLY valid JSON. No markdown and no explanation outside JSON.
 
-Allowed task_type: reasoning, mathematical, coding.
+Allowed task_type: reasoning, mathematical, coding, document, multimodal, pid.
 Allowed complexity: small, medium, large.
-Allowed agent: reasoning, mathematical, coding.
+Allowed domain: general, industrial, technical, finance, legal.
+Allowed agent: reasoning, mathematical, coding, multimodal.
 Allowed output_type: text, json, csv, xlsx, docx, pdf.
-Allowed validation_type: text, json, math, code.
-Allowed tools: python_sandbox, knowledge_retriever.
+Allowed validation_type: text, json, math, code, document, evidence.
+Allowed tools: python_sandbox, knowledge_retriever, document_parser, ocr, pid_engine.
 
-Decide from the user's actual intent, not from isolated keywords.
-Use a small task when one straightforward operation is enough.
-Use medium when multiple reasoning steps are needed.
-Use large for substantial documents, multi-step coding, comparison, design,
-large context, or tasks requiring iterative verification.
+Decide from the user's actual intent, not from isolated keywords:
+- reasoning: understanding, comparison, explanation, analysis, decision support.
+- mathematical: equations, algebra, statistics, numerical verification.
+- coding: scripts, data transformation, program generation, execution in Docker.
+- document: analyzing structured reports, PDFs, DOCX, XLSX, preserving tables/metadata.
+- multimodal: visual diagrams, scanned charts, OCR extraction.
+- pid: Piping & Instrumentation Diagrams, detecting equipment (valves, pumps, vessels), process lines, and topology.
 
 Return exactly this shape:
 {
-  "task_type": "reasoning|mathematical|coding",
+  "task_type": "reasoning|mathematical|coding|document|multimodal|pid",
   "task_reason": "short reason",
   "complexity": "small|medium|large",
-  "agent": "reasoning|mathematical|coding",
+  "domain": "general|industrial|technical",
+  "agent": "reasoning|mathematical|coding|multimodal",
   "retrieval": true,
   "tools": [],
   "output_type": "text|json|csv|xlsx|docx|pdf",
-  "validation_type": "text|json|math|code",
+  "validation_type": "text|json|math|code|document|evidence",
   "max_iterations": 1
 }
 """.strip()
@@ -79,43 +83,80 @@ Return exactly this shape:
             raw = raw[start:end + 1]
         return json.loads(raw)
 
-    def _fallback(self, text: str, context_chars: int, has_file: bool) -> ExecutionPlanState:
-        """Small conservative fallback; no large keyword table."""
+    def _fallback(self, text: str, context_chars: int, has_file: bool, file_path: str | None = None) -> ExecutionPlanState:
+        """Conservative intent-driven fallback for the execution coordinator."""
+        from pathlib import Path
         t = (text or "").lower()
         output = self._output_type(text)
         complexity = self.complexity.analyze(text, context_chars)
+        ext = Path(file_path).suffix.lower() if file_path else ""
 
-        # Intent-level signals only; this is a safety fallback, not the brain.
-        coding = any(x in t for x in (
-            "write code", "write a program", "debug", "implement", "python code",
-            "java code", "javascript code", "fix this code", "create a function",
-            "create a class", "stack trace", "sql query",
-        ))
-        math = bool(re.search(r"(?<!\w)(\d+(?:\.\d+)?\s*[+\-*/^=]\s*\d)", t)) or any(
-            x in t for x in ("solve equation", "calculate", "derivative", "integral", "probability", "matrix")
-        )
+        # Check for P&ID engineering schematic
+        is_pid_intent = bool(re.search(r"\b(p&id|pid|piping and instrumentation|process line|valve|pump|vessel|tank|compressor)\b", t))
+        is_image_file = ext in {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
 
-        if coding and not math:
-            task, agent, validation = "coding", "coding", "code"
-            tools = ["python_sandbox"]
-        elif math and not coding:
-            task, agent, validation = "mathematical", "mathematical", "math"
-            tools = []
+        if is_image_file and (is_pid_intent or "pid" in (file_path or "").lower()):
+            task, agent, validation = "pid", "multimodal", "evidence"
+            domain = "industrial"
+            tools = ["pid_engine", "ocr"]
+            complexity = "large"
+        elif is_image_file:
+            task, agent, validation = "multimodal", "multimodal", "document"
+            domain = "general"
+            tools = ["ocr"]
+        elif ext in {".pdf", ".docx", ".xlsx", ".pptx"} or (has_file and context_chars > 0 and not is_pid_intent):
+            task, agent, validation = "document", "multimodal", "document"
+            domain = "industrial" if any(x in t for x in ("mrpl", "refinery", "plant", "shutdown", "equipment")) else "general"
+            tools = ["document_parser"]
+            complexity = "large" if context_chars > 3000 else "medium"
         else:
-            task, agent, validation = "reasoning", "reasoning", "text"
-            tools = []
+            coding = bool(re.search(
+                r"\b(code|coding|program|script|function|class|debug|implement|python|java|javascript|c\+\+|sql|query|algorithm)\b",
+                t,
+            ))
+            math = bool(re.search(r"(?<!\w)(\d+(?:\.\d+)?\s*[+\-*/^=]\s*\d)", t)) or any(
+                x in t for x in ("solve equation", "calculate", "derivative", "integral", "probability", "matrix", "algebra")
+            )
 
-        retrieval = any(x in t for x in ("our company", "internal policy", "company document", "knowledge base"))
-        if has_file and context_chars > 0:
-            retrieval = retrieval or False
+            if coding:
+                task, agent, validation = "coding", "coding", "code"
+                domain = "general"
+                tools = ["python_sandbox"]
+            elif math:
+                task, agent, validation = "mathematical", "mathematical", "math"
+                domain = "general"
+                tools = []
+            elif is_pid_intent:
+                task, agent, validation = "pid", "multimodal", "evidence"
+                domain = "industrial"
+                tools = ["pid_engine", "ocr"]
+                complexity = "large"
+            else:
+                task, agent, validation = "reasoning", "reasoning", "text"
+                domain = "general"
+                tools = []
+
+        retrieval = any(x in t for x in ("our company", "internal policy", "company document", "knowledge base", "procedure", "shutdown", "mrpl"))
+        if task == "reasoning" and retrieval:
+            tools.append("knowledge_retriever")
 
         iterations = 3 if complexity == "large" or task == "coding" else 1
-        return ExecutionPlanState(task, "Conservative fallback plan", complexity, agent,
-                                  retrieval, tools, output, validation, iterations)
+        return ExecutionPlanState(
+            task_type=task,
+            task_reason="Intent-driven coordination plan",
+            complexity=complexity,
+            domain=domain,
+            agent=agent,
+            retrieval=retrieval,
+            tools=tools,
+            output_type=output,
+            validation_type=validation,
+            max_iterations=iterations,
+        )
 
-    def plan(self, text: str, context_chars: int = 0, has_file: bool = False) -> ExecutionPlanState:
+    def plan(self, text: str, context_chars: int = 0, has_file: bool = False, file_path: str | None = None) -> ExecutionPlanState:
         if self.llm is None:
-            return self._fallback(text, context_chars, has_file)
+            return self._fallback(text, context_chars, has_file, file_path)
 
         prompt = (
             self.SYSTEM_PROMPT
@@ -123,6 +164,7 @@ Return exactly this shape:
             + (text or "[file supplied without a question]")
             + f"\n\nCONTEXT CHARACTERS: {context_chars}"
             + f"\nFILE SUPPLIED: {has_file}"
+            + f"\nFILE PATH: {file_path or 'none'}"
         )
         try:
             raw = self.llm.generate(
@@ -131,65 +173,76 @@ Return exactly this shape:
                 parameters={"temperature": 0.0, "num_predict": 700},
             )
             data = self._clean_json(raw)
-            return self._normalize(data, text, context_chars, has_file)
+            return self._normalize(data, text, context_chars, has_file, file_path)
         except Exception:
-            return self._fallback(text, context_chars, has_file)
+            return self._fallback(text, context_chars, has_file, file_path)
 
     def _planner_model(self) -> str:
-        # Planning needs to be local and cheap. The engine may override this
-        # through AGENT_PLANNER_MODEL in a future configuration.
         import os
         return os.getenv("AGENT_PLANNER_MODEL", "tinyllama:latest")
 
-    def _normalize(self, data: dict[str, Any], text: str, context_chars: int, has_file: bool) -> ExecutionPlanState:
-        allowed_tasks = {"reasoning", "mathematical", "coding"}
+    def _normalize(self, data: dict[str, Any], text: str, context_chars: int, has_file: bool, file_path: str | None = None) -> ExecutionPlanState:
+        allowed_tasks = {"reasoning", "mathematical", "coding", "document", "multimodal", "pid"}
         allowed_complexity = {"small", "medium", "large"}
+        allowed_agents = {"reasoning", "mathematical", "coding", "multimodal"}
         allowed_output = {"text", "json", "csv", "xlsx", "docx", "pdf"}
-        allowed_validation = {"text", "json", "math", "code"}
-        allowed_tools = {"python_sandbox", "knowledge_retriever"}
+        allowed_validation = {"text", "json", "math", "code", "document", "evidence"}
+        allowed_tools = {"python_sandbox", "knowledge_retriever", "document_parser", "ocr", "pid_engine"}
 
         task = str(data.get("task_type", "reasoning")).lower()
-        agent = str(data.get("agent", task)).lower()
+        agent = str(data.get("agent", "reasoning")).lower()
         complexity = str(data.get("complexity", "medium")).lower()
+        domain = str(data.get("domain", "general")).lower()
         output = str(data.get("output_type", self._output_type(text))).lower()
         validation = str(data.get("validation_type", "text")).lower()
 
         if task not in allowed_tasks:
-            raise ValueError("Invalid task_type from planner")
-        if agent not in allowed_tasks:
-            agent = task
+            raise ValueError(f"Invalid task_type from planner: {task}")
+        if agent not in allowed_agents:
+            agent = "multimodal" if task in {"document", "multimodal", "pid"} else task
         if complexity not in allowed_complexity:
             complexity = self.complexity.analyze(text, context_chars)
         if output not in allowed_output:
             output = self._output_type(text)
 
-        # Validator is tied to the actual task unless a structured-output
-        # validator was explicitly requested.
-        if output == "json":
-            validation = "json"
+        # Map validation strategy to task & output
+        if task == "pid":
+            validation = "evidence"
+        elif task in {"document", "multimodal"}:
+            validation = "document" if output != "json" else "json"
         elif task == "coding":
             validation = "code"
         elif task == "mathematical":
             validation = "math"
+        elif output == "json":
+            validation = "json"
         else:
             validation = "text"
+
         if validation not in allowed_validation:
             validation = "text"
 
         tools = [x for x in data.get("tools", []) if x in allowed_tools]
         if task == "coding" and "python_sandbox" not in tools:
             tools.append("python_sandbox")
+        if task == "pid" and "pid_engine" not in tools:
+            tools.append("pid_engine")
+        if task in {"pid", "multimodal"} and "ocr" not in tools:
+            tools.append("ocr")
+        if task == "document" and "document_parser" not in tools:
+            tools.append("document_parser")
 
         retrieval = bool(data.get("retrieval", False))
         iterations = int(data.get("max_iterations", 1) or 1)
         iterations = max(1, min(iterations, 3))
-        if complexity == "large" or task == "coding":
+        if complexity == "large" or task in {"coding", "pid"}:
             iterations = max(iterations, 3)
 
         return ExecutionPlanState(
             task_type=task,
             task_reason=str(data.get("task_reason", ""))[:500],
             complexity=complexity,
+            domain=domain,
             agent=agent,
             retrieval=retrieval,
             tools=tools,

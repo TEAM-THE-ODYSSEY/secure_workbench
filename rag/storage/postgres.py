@@ -354,7 +354,12 @@ class DatabaseSessionManager:
             if config.USE_IN_MEMORY_FALLBACK:
                 logger.warning(f"Failed to connect to Postgres ({e}). Falling back to SQLite in-memory.")
                 self.uri = "sqlite:///:memory:"
-                self._engine = create_engine(self.uri, connect_args={"check_same_thread": False})
+                from sqlalchemy.pool import StaticPool
+                self._engine = create_engine(
+                    self.uri,
+                    connect_args={"check_same_thread": False},
+                    poolclass=StaticPool,
+                )
             else:
                 raise e
 

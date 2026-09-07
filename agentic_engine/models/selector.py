@@ -52,9 +52,15 @@ class ModelSelector:
                     ) for m in family
                 ]
             else:
-                # No configured model is installed. Fail clearly rather than
-                # selecting a model Ollama cannot run.
-                raise RuntimeError(f"No configured {task_type} model is installed in Ollama.")
+                # If no configured model from this category is installed, fall back to installed general models
+                general_installed = [m for m in MODEL_REGISTRY["reasoning"] if m.name in installed]
+                if general_installed:
+                    candidates = general_installed
+                elif installed:
+                    first_installed = sorted(list(installed))[0]
+                    candidates = [ModelInfo(name=first_installed, capabilities=["general"], quality=7, speed=7, context=8192, priority=5, parameters="7B")]
+                else:
+                    raise RuntimeError(f"No configured {task_type} model is installed in Ollama.")
 
         if complexity == "small":
             score = lambda m: (m.speed, m.priority, m.quality)

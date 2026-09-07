@@ -19,8 +19,10 @@ image = load_image(image_path)
 # 2. Create P&ID processing components
 # -----------------------------------------
 
+import os
+model_path = "models/best.pt" if os.path.exists("models/best.pt") else "../models/best.pt"
 symbol_detector = SymbolDetector(
-    weights="../models/best.pt",
+    weights=model_path,
     conf=0.25
 )
 

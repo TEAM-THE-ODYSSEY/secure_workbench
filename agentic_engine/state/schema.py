@@ -9,6 +9,7 @@ class ExecutionPlanState:
     task_type: str = "reasoning"
     task_reason: str = ""
     complexity: str = "small"
+    domain: str = "general"
     agent: str = "reasoning"
     retrieval: bool = False
     tools: list[str] = field(default_factory=list)

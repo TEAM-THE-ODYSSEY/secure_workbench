@@ -854,7 +854,8 @@ class LineDetector:
         # 4. Geometric filtering
         # -----------------------------------------------------
 
-        for item in lines[:, 0]:
+        lines = lines.reshape(-1, 4)
+        for item in lines:
 
             x1, y1, x2, y2 = map(
                 float,

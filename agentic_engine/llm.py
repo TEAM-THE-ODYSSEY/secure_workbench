@@ -8,7 +8,12 @@ class OllamaClient:
     def __init__(self, settings=None):
         self.settings = settings or Settings()
 
-    def generate(self, model: str, prompt: str) -> str:
+    def generate(self, model: str = "", prompt: str = "", parameters: dict | None = None, **kwargs) -> str:
+        model = model or kwargs.get("model", "")
+        prompt = prompt or kwargs.get("prompt", "")
+        options = {"temperature": 0.1, "num_predict": 512}
+        if parameters:
+            options.update(parameters)
         try:
             response = requests.post(
                 self.settings.ollama_url.rstrip("/") + "/api/generate",
@@ -16,10 +21,7 @@ class OllamaClient:
                     "model": model,
                     "prompt": prompt,
                     "stream": False,
-                    "options": {
-                        "temperature": 0.1,
-                        "num_predict": 512,
-                    },
+                    "options": options,
                 },
                 timeout=self.settings.timeout,
             )

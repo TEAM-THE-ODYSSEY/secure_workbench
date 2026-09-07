@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .agents.coding import CodingAgent
 from .agents.mathematical import MathematicalAgent
+from .agents.multimodal import MultimodalAgent
 from .agents.reasoning import ReasoningAgent
 from .code_runner import CodingWorkflow
 from .config import Settings
@@ -41,6 +42,7 @@ class Orchestrator:
             "reasoning": ReasoningAgent(self.llm),
             "mathematical": MathematicalAgent(self.llm),
             "coding": CodingAgent(self.llm),
+            "multimodal": MultimodalAgent(self.llm),
         }
 
     def new_chat(self):
@@ -64,6 +66,9 @@ class Orchestrator:
     def _create_output(self, state: AgentState):
         if state.plan.output_type == "text":
             return None
+        # If execution result already produced an Excel file (e.g. from P&ID domain tool)
+        if state.execution_result and hasattr(state.execution_result, "xlsx_path") and state.execution_result.xlsx_path:
+            return state.execution_result.xlsx_path
         try:
             return self.doc_output.create(
                 filename="agent_output",
@@ -86,7 +91,12 @@ class Orchestrator:
     def _run_agent(self, state: AgentState):
         agent_name = state.plan.agent
         model = state.selected_model
-        metadata = {"history": state.history, "state": state.to_dict()}
+        metadata = {
+            "history": state.history,
+            "state": state.to_dict(),
+            "state_ref": state,
+            "file_path": state.file_path,
+        }
 
         if agent_name == "coding":
             workflow = CodingWorkflow(self.llm, sandbox=self.sandbox, max_attempts=1)
@@ -96,7 +106,7 @@ class Orchestrator:
             state.current_step = "validation"
             return
 
-        agent = self.agents[agent_name]
+        agent = self.agents.get(agent_name, self.agents["reasoning"])
         state.answer = agent.run(
             user_text=state.user_request or "Analyze the supplied file and provide the most useful answer.",
             context=self._context(state),
@@ -124,15 +134,24 @@ class Orchestrator:
         if not self.store.exists(chat_id):
             raise ValueError(f"Unknown chat ID: {chat_id}")
 
-        allowed, reason = self.guard.check(message, file_path)
-        if not allowed:
-            self.store.add(chat_id, "system", f"Request blocked before LLM: {reason}", {"blocked": True})
-            return {"chat_id": chat_id, "blocked": True, "task": "blocked", "answer": "Request blocked by pre-LLM guardrails."}
-
         file_content = ""
         if file_path:
-            extracted = extract(file_path)
-            file_content = extracted.get("text", "")
+            try:
+                extracted = extract(file_path)
+                file_content = extracted.get("text", "")
+            except Exception as e:
+                file_content = f"[File extraction notice: {e}]"
+
+        allowed, reason, meta = self.guard.check(message, file_path, file_content)
+        if not allowed:
+            self.store.add(chat_id, "system", f"Request blocked before LLM: {reason}", {"blocked": True, "security": meta})
+            return {
+                "chat_id": chat_id,
+                "blocked": True,
+                "task": "blocked",
+                "answer": f"Request blocked by pre-LLM security gate: {reason}",
+                "security": meta,
+            }
 
         state = AgentState(
             chat_id=chat_id,
@@ -147,6 +166,7 @@ class Orchestrator:
             message,
             context_chars=len(file_content),
             has_file=bool(file_path),
+            file_path=file_path,
         )
 
         if state.plan.retrieval:
@@ -156,6 +176,7 @@ class Orchestrator:
             message,
             context_chars=len(self._context(state)),
             has_file=bool(file_path),
+            file_path=file_path,
         )
 
         model = self.selector.select(

@@ -1,15 +1,16 @@
 import re
 
 PATTERNS = [
-    r"ignore\s+(all|any|the|previous|prior)\s+instructions",
+    r"ignore\s+(all\s+)?(previous|prior|all|any)\s+instructions",
+    r"disregard\s+(all\s+)?(previous|prior|all|any)\s+instructions",
     r"disregard\s+(all|any|the|previous|prior)",
-    r"forget\s+(all|any|the|previous|prior)\s+instructions",
-    r"reveal\s+(the\s+)?system\s+prompt",
-    r"show\s+(me\s+)?(the\s+)?system\s+message",
+    r"forget\s+(all\s+)?(previous|prior|all|any)\s+instructions",
+    r"reveal\s+(the\s+)?system\s+(prompt|message)",
+    r"show\s+(me\s+)?(the\s+)?system\s+(prompt|message)",
     r"developer\s+message",
     r"jailbreak",
-    r"bypass\s+(your|the)\s+(rules|safety|guardrails)",
-    r"disable\s+(your\s+)?(guardrails|safety)",
+    r"bypass\s+(your|the)\s+(rules|safety|guardrails|filters)",
+    r"disable\s+(your\s+)?(guardrails|safety|filters)",
     r"execute\s+this\s+without\s+restriction",
 ]
 

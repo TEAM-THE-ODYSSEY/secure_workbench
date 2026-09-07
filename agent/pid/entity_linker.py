@@ -86,27 +86,32 @@ class PIDEntityLinker:
 
         own_session = False
         if not session:
-            session = db_manager.get_session()
-            own_session = True
+            try:
+                session = db_manager.get_session()
+                own_session = True
+            except Exception as e:
+                logger.warning(f"DB session unavailable for tag '{norm_tag}': {e}")
+                session = None
 
-        try:
-            # Upsert into PostgreSQL canonical EntityModel
-            self.entity_repo.upsert_entity(
-                session=session,
-                canonical_name=canonical_id,
-                entity_type=eq_type,
-                aliases=[raw_tag, norm_tag],
-                metadata={"tag": norm_tag, "domain": "P&ID"},
-            )
-            if own_session:
-                session.commit()
-        except Exception as e:
-            logger.warning(f"DB entity upsert failed for tag '{norm_tag}': {e}")
-            if own_session:
-                session.rollback()
-        finally:
-            if own_session:
-                session.close()
+        if session:
+            try:
+                # Upsert into PostgreSQL canonical EntityModel
+                self.entity_repo.upsert_entity(
+                    session=session,
+                    canonical_name=canonical_id,
+                    entity_type=eq_type,
+                    aliases=[raw_tag, norm_tag],
+                    metadata={"tag": norm_tag, "domain": "P&ID"},
+                )
+                if own_session:
+                    session.commit()
+            except Exception as e:
+                logger.warning(f"DB entity upsert failed for tag '{norm_tag}': {e}")
+                if own_session:
+                    session.rollback()
+            finally:
+                if own_session:
+                    session.close()
 
         return PIDEntity(
             id=canonical_id,
