@@ -8,10 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from backend import auth_store
-    from backend.api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin, workspaces, export
+    from backend.api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin, workspaces, export, sovereignty
 except ImportError:
     import auth_store
-    from api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin, workspaces, export
+    from api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin, workspaces, export, sovereignty
 
 
 logger = logging.getLogger("workbench.admin")
@@ -116,6 +116,9 @@ app.include_router(export.router, prefix="/api")
 
 # Workspaces API
 app.include_router(workspaces.router, prefix="/api")
+
+# Sovereignty verification console API
+app.include_router(sovereignty.router, prefix="/api")
 
 
 @app.post("/api/v1/documents/upload")
