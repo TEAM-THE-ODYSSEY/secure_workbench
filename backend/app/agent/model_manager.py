@@ -48,9 +48,9 @@ class ModelManager:
         timeout: float = 30.0,
         api_key: str = "EMPTY",
     ):
-        self.vllm_api_base = vllm_api_base or os.getenv("VLLM_API_BASE", getattr(config, "VLLM_API_BASE", "http://host.docker.internal:8080/v1"))
-        self.primary_model = primary_model or os.getenv("PRIMARY_MODEL_NAME", getattr(config, "PRIMARY_MODEL_NAME", "Qwen3-4B"))
-        self.fallback_model = fallback_model or os.getenv("FALLBACK_MODEL_NAME", getattr(config, "FALLBACK_MODEL_NAME", "Qwen3-1.7B"))
+        self.vllm_api_base = vllm_api_base or os.getenv("VLLM_API_BASE", getattr(config, "VLLM_API_BASE", "http://localhost:8001/v1"))
+        self.primary_model = primary_model or os.getenv("PRIMARY_MODEL_NAME", getattr(config, "PRIMARY_MODEL_NAME", "Qwen/Qwen2.5-1.5B-Instruct-AWQ"))
+        self.fallback_model = fallback_model or os.getenv("FALLBACK_MODEL_NAME", getattr(config, "FALLBACK_MODEL_NAME", "Qwen/Qwen2.5-1.5B-Instruct-AWQ"))
         self.timeout = timeout
         self.api_key = api_key
 
@@ -96,15 +96,27 @@ class ModelManager:
         """Call OpenAI-compatible completions/chat endpoint."""
         url = f"{self.vllm_api_base.rstrip('/')}/chat/completions"
         messages = []
+        sys_len = 0
         if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
+            clean_sys = system_prompt[:1000]
+            sys_len = len(clean_sys)
+            messages.append({"role": "system", "content": clean_sys})
+
+        max_prompt_chars = 3500
+        if len(prompt) > max_prompt_chars:
+            prompt = prompt[:max_prompt_chars] + "\n...[Context truncated to fit model limit]"
+
         messages.append({"role": "user", "content": prompt})
+
+        approx_prompt_tokens = int((len(prompt) + sys_len) / 2.5)
+        remaining_budget = max(128, 1980 - approx_prompt_tokens)
+        safe_max_tokens = min(max_tokens, remaining_budget)
 
         payload = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens,
+            "max_tokens": safe_max_tokens,
         }
 
         headers = {

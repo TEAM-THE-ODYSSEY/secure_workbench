@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, ChevronDown, LogOut, LayoutDashboard } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, LayoutDashboard, Settings } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export interface HeaderProps {
   onSwitchToAdmin?: () => void;
+  onOpenSettings?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin }) => {
+export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin, onOpenSettings }) => {
   const { user, logout } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -28,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin }) => {
   }, []);
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 z-50 flex items-center justify-between px-6 shrink-0 shadow-xs">
+    <header className="h-16 bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 z-50 flex items-center justify-between px-6 shrink-0 shadow-xs transition-colors">
       
       {/* Left: ONGC MRPL Logo & Branding */}
       <div className="flex items-center gap-3">
@@ -39,12 +40,12 @@ export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin }) => {
 
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="font-extrabold text-slate-800 text-sm tracking-wide font-sans">
-              <span className="font-black">MRPL</span> Sovereign AI Workbench
+            <h1 className="font-extrabold text-slate-800 dark:text-slate-100 text-sm tracking-wide font-sans">
+              <span className="font-black text-slate-900 dark:text-white">MRPL</span> Sovereign AI Workbench
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 hidden md:inline">
+            <span className="text-xs text-slate-500 dark:text-slate-400 hidden md:inline">
               Ask. Analyze. Get Trusted Answers.
             </span>
           </div>
@@ -53,21 +54,22 @@ export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin }) => {
 
       {/* Center: AIR-GAPPED Security Pill */}
       <div className="hidden lg:flex flex-col items-center">
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
-          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-extrabold text-xs tracking-wider">AIR-GAPPED</span>
         </div>
-        <span className="text-[10px] text-slate-400 font-sans mt-0.5">
+        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-sans mt-0.5">
           Secure • Private • MRPL
         </span>
       </div>
 
       {/* Right: Notifications & User Profile */}
-      <div className="flex items-center gap-4">
-        {/* Notification Bell with red count badge 3 */}
-        <button className="relative p-2 rounded-full hover:bg-slate-100 text-slate-600 transition-colors">
+      <div className="flex items-center gap-3">
+        
+        {/* Notification Bell with red count badge 5 */}
+        <button className="relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors">
           <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center border border-white">
+          <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center border border-white dark:border-slate-900">
             5
           </span>
         </button>
@@ -86,25 +88,39 @@ export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin }) => {
 
           <button
             onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center gap-3 pl-3 border-l border-slate-200 hover:bg-slate-50 rounded-lg px-2 py-1 transition-colors"
+            className="flex items-center gap-3 pl-3 border-l border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-lg px-2 py-1 transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+            <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-emerald-900 text-white flex items-center justify-center font-bold text-xs shadow-sm">
               {initials}
             </div>
             <div className="text-left hidden sm:block">
-              <div className="text-xs font-extrabold text-slate-800 leading-tight">{user?.username || 'operator'}</div>
-              <div className="text-[10px] text-slate-500 leading-tight font-medium">{roleLabel}</div>
+              <div className="text-xs font-extrabold text-slate-800 dark:text-slate-100 leading-tight">{user?.username || 'operator'}</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight font-medium">{roleLabel}</div>
             </div>
             <ChevronDown className={`w-3.5 h-3.5 text-slate-400 hidden sm:block transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Dropdown Menu */}
           {showDropdown && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
-              <div className="px-3 py-2 border-b border-slate-100">
-                <div className="text-xs font-bold text-slate-800">{user?.username}</div>
-                <div className="text-[10px] text-slate-500 capitalize">{user?.role} account</div>
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-900 rounded-lg shadow-lg border border-slate-200 dark:border-slate-800 py-1 z-50">
+              <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-100">{user?.username}</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 capitalize">{user?.role} account</div>
               </div>
+
+              {/* Settings Option inside Dropdown */}
+              {onOpenSettings && (
+                <button
+                  onClick={() => {
+                    setShowDropdown(false);
+                    onOpenSettings();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <Settings className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <span>Settings</span>
+                </button>
+              )}
 
               {onSwitchToAdmin && (
                 <button
@@ -112,7 +128,7 @@ export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin }) => {
                     setShowDropdown(false);
                     onSwitchToAdmin();
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-emerald-800 hover:bg-emerald-50 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-emerald-800 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" />
                   Admin Panel
@@ -124,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin }) => {
                   setShowDropdown(false);
                   logout();
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 Sign Out
@@ -137,3 +153,5 @@ export const Header: React.FC<HeaderProps> = ({ onSwitchToAdmin }) => {
     </header>
   );
 };
+
+

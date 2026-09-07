@@ -27,19 +27,19 @@ export const FormattedMessageResponse: React.FC<FormattedMessageResponseProps> =
       let iconNode: React.ReactNode = null;
 
       if (headerText.includes('Purpose') || headerText.includes('Scope') || headerText.includes('🛡️')) {
-        iconNode = <Shield className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />;
+        iconNode = <Shield className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />;
       } else if (headerText.includes('Roles') || headerText.includes('Functions') || headerText.includes('👥')) {
-        iconNode = <Users className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />;
+        iconNode = <Users className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />;
       } else if (headerText.includes('Considerations') || headerText.includes('Safety') || headerText.includes('📋')) {
-        iconNode = <ClipboardList className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />;
+        iconNode = <ClipboardList className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />;
       } else {
-        iconNode = <FileText className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />;
+        iconNode = <FileText className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />;
       }
 
       const cleanTitle = headerText.replace(/^[🛡️👥📋📄📍📊🔍💻📌🏢]\s*/, '').trim();
 
       blocks.push(
-        <div key={`header-${i}`} className="flex items-center gap-2 pt-3 pb-1 border-b border-slate-100 font-bold text-slate-900 text-sm">
+        <div key={`header-${i}`} className="flex items-center gap-2 pt-3 pb-1 border-b border-slate-100 dark:border-slate-800 font-bold text-slate-900 dark:text-slate-100 text-sm">
           {iconNode}
           <span>{cleanTitle}</span>
         </div>
@@ -52,8 +52,8 @@ export const FormattedMessageResponse: React.FC<FormattedMessageResponseProps> =
     if (trimmed.startsWith('>') || trimmed.includes('This analysis is based on')) {
       const calloutText = trimmed.replace(/^>\s*/, '').replace(/^[ℹ️]\s*/, '').trim();
       blocks.push(
-        <div key={`callout-${i}`} className="bg-sky-50 border border-sky-200/80 rounded-xl p-3.5 flex items-start gap-3 my-3 text-sky-900 text-xs shadow-2xs">
-          <Info className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+        <div key={`callout-${i}`} className="bg-sky-50 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 rounded-xl p-3.5 flex items-start gap-3 my-3 text-sky-900 dark:text-sky-200 text-xs shadow-2xs">
+          <Info className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
           <p className="leading-relaxed font-medium">{calloutText}</p>
         </div>
       );
@@ -79,22 +79,22 @@ export const FormattedMessageResponse: React.FC<FormattedMessageResponseProps> =
         const bodyRows = tableRows.slice(1);
 
         blocks.push(
-          <div key={`table-${i}`} className="my-3 overflow-x-auto rounded-xl border border-slate-200 shadow-2xs bg-white">
+          <div key={`table-${i}`} className="my-3 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs bg-white dark:bg-slate-900">
             <table className="w-full text-left text-xs border-collapse font-sans">
               <thead>
-                <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-800 font-extrabold">
+                <tr className="bg-slate-100/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 font-extrabold">
                   {headerRow.map((cell, hIdx) => (
-                    <th key={hIdx} className="px-4 py-2.5 uppercase text-[10px] tracking-wider text-slate-600">
+                    <th key={hIdx} className="px-4 py-2.5 uppercase text-[10px] tracking-wider text-slate-600 dark:text-slate-400">
                       {cell}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300 font-medium">
                 {bodyRows.map((row, rIdx) => (
-                  <tr key={rIdx} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={rIdx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                     {row.map((cell, cIdx) => (
-                      <td key={cIdx} className={`px-4 py-2.5 ${cIdx === 0 ? 'font-bold text-slate-800' : 'text-slate-600'}`}>
+                      <td key={cIdx} className={`px-4 py-2.5 ${cIdx === 0 ? 'font-bold text-slate-800 dark:text-slate-200' : 'text-slate-600 dark:text-slate-300'}`}>
                         {cell}
                       </td>
                     ))}
@@ -117,16 +117,16 @@ export const FormattedMessageResponse: React.FC<FormattedMessageResponseProps> =
       }
 
       blocks.push(
-        <ul key={`list-${i}`} className="space-y-1.5 my-2 pl-1 text-slate-700 text-xs">
+        <ul key={`list-${i}`} className="space-y-1.5 my-2 pl-1 text-slate-700 dark:text-slate-300 text-xs">
           {bulletItems.map((item, bIdx) => {
             const parts = item.split(/(\*\*.*?\*\*)/g);
             return (
               <li key={bIdx} className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 shrink-0 mt-1.5" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 dark:bg-emerald-400 shrink-0 mt-1.5" />
                 <span className="leading-relaxed">
                   {parts.map((p, pIdx) =>
                     p.startsWith('**') && p.endsWith('**') ? (
-                      <strong key={pIdx} className="font-extrabold text-slate-900">
+                      <strong key={pIdx} className="font-extrabold text-slate-900 dark:text-slate-100">
                         {p.slice(2, -2)}
                       </strong>
                     ) : (
@@ -146,10 +146,10 @@ export const FormattedMessageResponse: React.FC<FormattedMessageResponseProps> =
     const paragraphText = trimmed;
     const formattedParts = paragraphText.split(/(\*\*.*?\*\*)/g);
     blocks.push(
-      <p key={`p-${i}`} className="leading-relaxed text-slate-700 text-xs my-1 font-sans">
+      <p key={`p-${i}`} className="leading-relaxed text-slate-700 dark:text-slate-300 text-xs my-1 font-sans">
         {formattedParts.map((p, pIdx) =>
           p.startsWith('**') && p.endsWith('**') ? (
-            <strong key={pIdx} className="font-extrabold text-slate-900">
+            <strong key={pIdx} className="font-extrabold text-slate-900 dark:text-slate-100">
               {p.slice(2, -2)}
             </strong>
           ) : (
@@ -164,3 +164,4 @@ export const FormattedMessageResponse: React.FC<FormattedMessageResponseProps> =
 
   return <div className="space-y-2">{blocks}</div>;
 };
+

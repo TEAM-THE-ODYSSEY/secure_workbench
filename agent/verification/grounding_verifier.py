@@ -9,7 +9,7 @@ Enforces strict deterministic verification over generated outputs against retrie
 
 import re
 import logging
-from typing import List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 from pydantic import BaseModel
 
 from agent.models.schemas import Citation, EvidenceChunk, StructuredPDFContent, FinalReasoningOutput
@@ -30,6 +30,25 @@ class GroundingVerifier:
     """
     Deterministic Verification Engine for Grounded Reasoning.
     """
+
+    def verify(
+        self,
+        response_text: str,
+        citations: List[Citation],
+        evidence: List[EvidenceChunk],
+    ) -> Dict[str, Any]:
+        """Convenience method returning grounded boolean and issue list."""
+        output = FinalReasoningOutput(
+            answer=response_text,
+            claims=[response_text],
+            citations=citations,
+        )
+        res = self.verify_final_output(output, evidence)
+        return {
+            "grounded": res.is_valid,
+            "issues": res.unsupported_claims,
+            "result": res,
+        }
 
     def verify_structured_pdf(
         self,
@@ -134,8 +153,9 @@ class GroundingVerifier:
                     unsupported_claims.append(f"Cited document_id '{cit.document_id}' was not found in retrieved evidence.")
         else:
             missing_citations += 1
+            unsupported_claims.append("Missing required citations for reasoning claims.")
 
-        is_valid = len(unsupported_claims) == 0
+        is_valid = len(unsupported_claims) == 0 and missing_citations == 0
         return VerificationResult(
             is_valid=is_valid,
             unsupported_claims=unsupported_claims,

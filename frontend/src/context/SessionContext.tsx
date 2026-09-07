@@ -261,9 +261,25 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       let fileExtractedText: string | undefined = undefined;
       if (actualFile) {
+        const isTextFile = actualFile.type.startsWith('text/') || actualFile.name.endsWith('.txt') || actualFile.name.endsWith('.csv') || actualFile.name.endsWith('.json');
+        if (isTextFile) {
+          try {
+            const textContent = await actualFile.text();
+            fileExtractedText = textContent;
+          } catch {
+            // Ignore
+          }
+        }
+
+        // Upload non-text files (images, PDFs, DOCX) to backend ingestion upload so OCR parser processes them
         try {
-          const textContent = await actualFile.text();
-          fileExtractedText = textContent;
+          const formData = new FormData();
+          formData.append('file', actualFile);
+          formData.append('async_mode', 'false');
+          await apiFetch('/api/v1/documents/upload', {
+            method: 'POST',
+            body: formData,
+          });
         } catch {
           // Ignore
         }

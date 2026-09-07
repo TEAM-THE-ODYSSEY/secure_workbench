@@ -133,6 +133,25 @@ class PIDTopologyEngine:
                 })
         return results
 
+    def query_upstream(self, target_tag: str) -> List[Dict[str, Any]]:
+        """Find upstream equipment and valves connected to target tag."""
+        canonical_id = self.linker.get_canonical_entity_id(target_tag)
+        results = []
+
+        if canonical_id in self.graph:
+            for predecessor, _, data in self.graph.in_edges(canonical_id, data=True):
+                pred_node = self.graph.nodes.get(predecessor, {})
+                results.append({
+                    "entity_id": predecessor,
+                    "tag": pred_node.get("tag", predecessor),
+                    "type": pred_node.get("type", "UNKNOWN"),
+                    "relationship": data.get("relationship", "UPSTREAM"),
+                    "pipe": data.get("pipe"),
+                    "confidence": data.get("confidence", 1.0),
+                    "provenance": data.get("provenance", {}),
+                })
+        return results
+
     def query_isolation_valves(self, target_tag: str) -> List[Dict[str, Any]]:
         """Find isolation valves (upstream and downstream) connected to target equipment."""
         canonical_id = self.linker.get_canonical_entity_id(target_tag)

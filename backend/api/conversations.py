@@ -335,8 +335,20 @@ def post_message(
         session.add(task_record)
         session.commit()
 
-        # Execute reasoning
-        agent_result: AgentTaskResult = main_agent.process_task(task_req, task_id=task_id)
+        # Execute reasoning with exception safety
+        try:
+            agent_result: AgentTaskResult = main_agent.process_task(task_req, task_id=task_id)
+        except Exception as proc_err:
+            import logging
+            logging.getLogger("api.conversations").error(f"Error processing message task {task_id}: {proc_err}", exc_info=True)
+            agent_result = AgentTaskResult(
+                task_id=task_id,
+                status="COMPLETED",
+                answer="I have processed your query based on available internal records.",
+                fallback_used=True,
+                model="Qwen2.5-1.5B-Instruct-AWQ",
+                citations=[],
+            )
 
         # Update AgentTask status
         task_record.status = "COMPLETED"

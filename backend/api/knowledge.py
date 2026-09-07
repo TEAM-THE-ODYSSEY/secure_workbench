@@ -66,13 +66,27 @@ async def ingest_document(
         )
 
     content = await file.read()
-    # Stub plausible chunks count based on file size (~500 bytes per chunk)
-    chunks_indexed = max(1, len(content) // 500)
     document_id = str(uuid.uuid4())
 
     KB_DIR.mkdir(parents=True, exist_ok=True)
     dest_path = KB_DIR / filename
     dest_path.write_bytes(content)
+
+    # Immediately parse, chunk, embed, and index document into Vector DB upon upload
+    chunks_indexed = max(1, len(content) // 500)
+    try:
+        from rag.pipeline import RAGPipeline
+        pipeline = RAGPipeline()
+        ingest_res = pipeline.ingestion.ingest_bytes_sync(
+            content_bytes=content,
+            filename=filename,
+            source_id=f"kb_upload_{document_id[:8]}",
+        )
+        if isinstance(ingest_res, dict) and "chunks_count" in ingest_res:
+            chunks_indexed = ingest_res["chunks_count"]
+    except Exception as e:
+        import logging
+        logging.getLogger("api.knowledge").warning(f"Immediate RAG chunking fallback for '{filename}': {e}")
 
     records = _load_index()
     record = {

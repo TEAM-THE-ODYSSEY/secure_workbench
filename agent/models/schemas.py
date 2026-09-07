@@ -20,6 +20,7 @@ class TaskRequest(BaseModel):
     allow_fallback: bool = Field(default=True, description="Allow fallback model or direct synthesis")
     scoped_file_id: Optional[str] = Field(default=None, description="Optional uploaded file ID for small-base RAG")
     attached_file: Optional[Dict[str, Any]] = Field(default=None, description="Metadata of attached uploaded document")
+    attachments: Optional[List[Dict[str, Any]]] = Field(default=None, description="List of attached uploaded documents")
     extracted_text: Optional[str] = Field(default=None, description="Raw or parsed text of attached uploaded document")
 
 
@@ -63,8 +64,12 @@ class Citation(BaseModel):
     snippet: Optional[str] = None
 
 
+import uuid
+
+
 class EvidenceChunk(BaseModel):
     """Structured evidence chunk retrieved by KnowledgeTool or PIDTool."""
+    chunk_id: str = Field(default_factory=lambda: f"chk_{uuid.uuid4().hex[:8]}")
     document_id: str
     title: str
     version: str = "1.0"
@@ -156,13 +161,142 @@ class ExecutionTraceRecord(BaseModel):
 class AgentTaskResult(BaseModel):
     """Final response returned by Main AI Agent to client / API."""
     task_id: str
-    status: str  # COMPLETE, INSUFFICIENT_EVIDENCE, VERIFICATION_FAILED, PDF_GENERATION_FAILED, MODEL_ERROR
+    status: str  # COMPLETE, INSUFFICIENT_EVIDENCE, VERIFICATION_FAILED, PDF_GENERATION_FAILED, MODEL_ERROR, CANCELLED
     result_type: str = "TEXT"  # TEXT or PDF
     answer: Optional[str] = None
     artifact: Optional[ArtifactMetadata] = None
-    model: str = "Qwen3-4B"
+    model: str = "Qwen2.5-VL-7B-Instruct"
     fallback_used: bool = False
     citations: List[Citation] = Field(default_factory=list)
     message: Optional[str] = None
     structured_content: Optional[StructuredPDFContent] = None
     trace: Optional[ExecutionTraceRecord] = None
+
+
+class AgentSpec(BaseModel):
+    """Specification of an agent step within a TaskPlan."""
+    name: str  # general, knowledge, document, pid, coding, report
+    purpose: str
+    depends_on: List[str] = Field(default_factory=list)
+
+
+class TaskPlan(BaseModel):
+    """Structured task plan produced by Main Orchestrator."""
+    intent: str
+    agents: List[AgentSpec] = Field(default_factory=list)
+    entities: List[str] = Field(default_factory=list)
+    skill_name: Optional[str] = None
+    requires_reasoning: bool = True
+    requires_report: bool = False
+    output_type: str = "TEXT"
+
+
+class TaskContext(BaseModel):
+    """
+    Execution context passed down to specialized agents.
+    Established by trusted backend layer; immutable security context: user_id, workspace_id, role, permissions, conversation_id.
+    """
+    task_id: str
+    user_id: str
+    conversation_id: str
+    workspace_id: str = "default_workspace"
+    role: str = "OPERATOR"
+    permissions: List[str] = Field(default_factory=list)
+    query: str
+    attachments: List[Dict[str, Any]] = Field(default_factory=list)
+    entity_context: List[str] = Field(default_factory=list)
+    task_plan: Optional[TaskPlan] = None
+    retrieved_evidence: List[EvidenceChunk] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in ("user_id", "workspace_id", "role", "permissions", "conversation_id"):
+            try:
+                curr = object.__getattribute__(self, name)
+                if curr != value:
+                    raise ValueError(f"Security Context Violation: Field '{name}' is immutable and cannot be modified by agents.")
+            except AttributeError:
+                pass
+        super().__setattr__(name, value)
+
+
+class AgentResult(BaseModel):
+    """Standardized response contract for all specialized agents."""
+    agent: str
+    status: str  # success, failure, partial, skipped
+    content: str = ""
+    evidence: List[EvidenceChunk] = Field(default_factory=list)
+    citations: List[Citation] = Field(default_factory=list)
+    artifacts: List[Dict[str, Any]] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ContextPack(BaseModel):
+    """Bounded, deduplicated context pack produced by EvidenceFusion for final reasoning."""
+    task_id: str
+    query: str
+    evidence_chunks: List[EvidenceChunk] = Field(default_factory=list)
+    citations: List[Citation] = Field(default_factory=list)
+    entities: List[str] = Field(default_factory=list)
+    summary_snippets: List[str] = Field(default_factory=list)
+    sources: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class AgentPermission(str, Enum):
+    AGENT_USE = "agent.use"
+    KNOWLEDGE_READ = "knowledge.read"
+    KNOWLEDGE_UPLOAD = "knowledge.upload"
+    PID_USE = "pid.use"
+    CODING_USE = "coding.use"
+    REPORTS_CREATE = "reports.create"
+    REPORTS_DOWNLOAD = "reports.download"
+    TASKS_READ = "tasks.read"
+    USERS_MANAGE = "users.manage"
+    AUDIT_VIEW = "audit.view"
+    SYSTEM_HEALTH = "system.health"
+    SANDBOX_USE = "sandbox.use"
+
+
+class ModelHealthState(str, Enum):
+    UNKNOWN = "UNKNOWN"
+    STARTING = "STARTING"
+    READY = "READY"
+    DEGRADED = "DEGRADED"
+    FAILED = "FAILED"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
+class ModelErrorCategory(str, Enum):
+    NONE = "NONE"
+    CUDA_OUT_OF_MEMORY = "CUDA_OUT_OF_MEMORY"
+    CUDA_FRAGMENTATION = "CUDA_FRAGMENTATION"
+    MODEL_NOT_FOUND = "MODEL_NOT_FOUND"
+    MODEL_LOAD_FAILED = "MODEL_LOAD_FAILED"
+    VLLM_STARTUP_FAILED = "VLLM_STARTUP_FAILED"
+    VLLM_TIMEOUT = "VLLM_TIMEOUT"
+    VLLM_UNAVAILABLE = "VLLM_UNAVAILABLE"
+    CUDA_UNAVAILABLE = "CUDA_UNAVAILABLE"
+    INVALID_CONFIGURATION = "INVALID_CONFIGURATION"
+    UNKNOWN_MODEL_ERROR = "UNKNOWN_MODEL_ERROR"
+
+
+class DetailedSystemHealthResponse(BaseModel):
+    application: str = "healthy"
+    model: str = "degraded"
+    model_state: ModelHealthState = ModelHealthState.UNKNOWN
+    active_model: str = "Qwen/Qwen2.5-3B-Instruct-AWQ"
+    primary_model: str = "Qwen/Qwen2.5-3B-Instruct-AWQ"
+    fallback_model: str = "Qwen/Qwen2.5-1.5B-Instruct"
+    fallback_available: bool = True
+    gpu_available: bool = True
+    gpu_name: str = "NVIDIA GeForce RTX 3050 Laptop GPU"
+    gpu_vram_total: str = "4.0 GB"
+    gpu_vram_free: str = "2.85 GB"
+    error_category: ModelErrorCategory = ModelErrorCategory.NONE
+    reason: Optional[str] = None
+    vllm_api_base: str = "http://host.docker.internal:8001/v1"
+    vllm_gpu_utilization: float = 0.65
+    max_model_len: int = 2048
+    development_low_vram: bool = True
+

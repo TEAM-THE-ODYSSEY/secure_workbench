@@ -22,7 +22,7 @@ from rag.storage.postgres import db_manager, DocumentModel, ChunkModel, Ingestio
 
 # Import backend modules
 from backend import auth_store
-from backend.api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin
+from backend.api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin, workspaces
 
 # Import Agent service (for reasoning endpoints)
 from agent.models import TaskRequest, AgentTaskResult
@@ -93,7 +93,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount Auth, Chat, Knowledge, Network, Sessions, and Stream Routers
+# Mount Auth, Chat, Knowledge, Network, Sessions, Workspaces, and Admin Routers
 app.include_router(auth.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(stream.router, prefix="/api")
@@ -106,6 +106,31 @@ app.include_router(sessions.router, prefix="/api")
 app.include_router(agent_reason.router, prefix="/api")
 app.include_router(conversations.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(workspaces.router, prefix="/api")
+
+
+@app.post("/api/v1/tasks/{task_id}/cancel")
+def cancel_task(task_id: str):
+    """Cancel a running multi-agent task safely."""
+    success = task_manager.request_cancel(task_id, user_id="operator")
+    if not success:
+        raise HTTPException(status_code=404, detail="Task not found or unable to cancel")
+    return {"status": "CANCEL_REQUESTED", "task_id": task_id}
+
+
+@app.get("/api/v1/tasks/{task_id}")
+def get_task_status(task_id: str):
+    """Get status of a multi-agent task."""
+    task = task_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {
+        "task_id": task.task_id,
+        "status": task.status.value,
+        "active_step": task.active_step,
+        "user_id": task.user_id,
+        "conversation_id": task.conversation_id,
+    }
 
 
 # ============================================================================
@@ -405,7 +430,8 @@ def reason_agent_task(request: TaskRequest):
     Performs search over existing KB, strictly grounds content, generates validated ReportLab PDF, and persists to MinIO.
     """
     try:
-        result = agent_service.process_task(request)
+        from agent.main_agent import main_agent
+        result = main_agent.process_task(request)
         return result
     except Exception as e:
         logger.error(f"Error processing reasoning agent task: {e}", exc_info=True)

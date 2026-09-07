@@ -547,7 +547,20 @@ class DatabaseSessionManager:
             logger.warning(f"Database schema auto-migration notice: {e}")
 
         Base.metadata.create_all(bind=self._engine)
+        try:
+            from workspace.models import WorkspaceModel, AINoteModel
+            WorkspaceModel.__table__.create(bind=self._engine, checkfirst=True)
+            AINoteModel.__table__.create(bind=self._engine, checkfirst=True)
+        except Exception as ex_ws:
+            logger.debug(f"Workspace table creation notice: {ex_ws}")
 
+
+    @property
+    def engine(self):
+        """Return underlying SQLAlchemy Engine."""
+        if self._engine is None:
+            self.initialize()
+        return self._engine
 
     def get_session(self) -> Session:
         """Create a new database session."""

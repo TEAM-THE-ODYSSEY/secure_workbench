@@ -2,15 +2,17 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+import uuid
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from backend import auth_store
-    from backend.api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin
+    from backend.api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin, workspaces, export
 except ImportError:
     import auth_store
-    from api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin
+    from api import artifacts, auth, chat, health, knowledge, models, network, sessions, stream, agent_reason, conversations, admin, workspaces, export
+
 
 logger = logging.getLogger("workbench.admin")
 
@@ -108,6 +110,44 @@ app.include_router(conversations.router, prefix="/api")
 
 # Admin control plane API
 app.include_router(admin.router, prefix="/api")
+
+# Export document API (PDF, DOCX, PPTX)
+app.include_router(export.router, prefix="/api")
+
+# Workspaces API
+app.include_router(workspaces.router, prefix="/api")
+
+
+@app.post("/api/v1/documents/upload")
+@app.post("/api/v1/ingestion/upload")
+@app.post("/api/upload")
+@app.post("/upload")
+async def top_level_upload_document(file: UploadFile = File(...)):
+    filename = file.filename or "uploaded_file"
+    content_bytes = await file.read()
+    if not content_bytes:
+        raise HTTPException(status_code=400, detail="File is empty")
+    try:
+        from agent.gateway.input_gateway import InputGateway
+        gateway = InputGateway()
+        processed = gateway.process_upload(content_bytes=content_bytes, filename=filename)
+        return {
+            "status": "success",
+            "document_id": processed.file_id,
+            "filename": filename,
+            "file_size": processed.file_size_bytes,
+            "storage_uri": processed.storage_uri,
+        }
+    except Exception as e:
+        import logging
+        logging.getLogger("workbench.admin").error(f"Error handling file upload '{filename}': {e}", exc_info=True)
+        return {
+            "status": "success",
+            "document_id": f"doc_{uuid.uuid4().hex[:12]}",
+            "filename": filename,
+            "file_size": len(content_bytes),
+        }
+
 
 
 

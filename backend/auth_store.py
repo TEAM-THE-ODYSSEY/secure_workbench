@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from typing import Literal, Optional
 from passlib.context import CryptContext
 
+from sqlalchemy import or_
+
 from rag.storage.postgres import db_manager, UserModel, UserRole
 
 try:
@@ -101,7 +103,9 @@ async def create_user(
     await ensure_seed_users()
     session = db_manager.get_session()
     try:
-        existing = session.query(UserModel).filter(UserModel.employee_id == username).first()
+        existing = session.query(UserModel).filter(
+            or_(UserModel.employee_id == username, UserModel.email == username)
+        ).first()
         if existing:
             raise UserAlreadyExistsError(f"Username '{username}' is already taken")
 
@@ -133,7 +137,9 @@ async def get_user_by_username(username: str) -> Optional[User]:
     await ensure_seed_users()
     session = db_manager.get_session()
     try:
-        user_model = session.query(UserModel).filter(UserModel.employee_id == username).first()
+        user_model = session.query(UserModel).filter(
+            or_(UserModel.employee_id == username, UserModel.email == username)
+        ).first()
         return _user_from_model(user_model) if user_model else None
     finally:
         session.close()
@@ -154,7 +160,9 @@ async def verify_password(username: str, password: str) -> Optional[User]:
     await ensure_seed_users()
     session = db_manager.get_session()
     try:
-        user_model = session.query(UserModel).filter(UserModel.employee_id == username).first()
+        user_model = session.query(UserModel).filter(
+            or_(UserModel.employee_id == username, UserModel.email == username)
+        ).first()
         if not user_model or not user_model.is_active:
             return None
         if not pwd_context.verify(password, user_model.password_hash):

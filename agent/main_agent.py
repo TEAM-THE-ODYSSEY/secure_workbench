@@ -15,9 +15,12 @@ from agent.gateway.input_gateway import InputGateway
 logger = logging.getLogger("agent.main_agent")
 
 
+from agent.orchestrator import main_orchestrator
+
+
 class MainAgent:
     """
-    Main AI Agent control layer.
+    Main AI Agent control layer. Delegates to MainOrchestrator.
     """
 
     def __init__(
@@ -34,14 +37,17 @@ class MainAgent:
         self,
         request: TaskRequest,
         task_id: Optional[str] = None,
+        user_id: str = "operator",
+        conversation_id: str = "conv_default",
     ) -> AgentTaskResult:
         """
-        Process user request through Main Agent control layer.
+        Process user request through Main Orchestrator.
         """
         logger.info(f"MainAgent processing request: objective='{request.objective}', entities={request.entities}")
-        result = self.state_machine.run(request=request, task_id=task_id)
-        logger.info(f"MainAgent completed task '{result.task_id}' with status '{result.status}' (active_model={result.model}, fallback={result.fallback_used})")
+        result = main_orchestrator.process_task(request, task_id=task_id, user_id=user_id, conversation_id=conversation_id)
+        logger.info(f"MainAgent completed task '{result.task_id}' with status '{result.status}' (model={result.model})")
         return result
+
 
     def health_check(self):
         """Return Main Agent and vLLM health status."""

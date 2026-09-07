@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { Plus, Search, FileText, MoreHorizontal, HelpCircle, Settings, Trash2 } from 'lucide-react';
 import { useSession } from '../../context/SessionContext';
 
-export const Sidebar: React.FC = () => {
+export interface SidebarProps {
+  onOpenSettings?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ onOpenSettings }) => {
   const { sessions, activeSessionId, setActiveSessionId, createNewChat, deleteSession } = useSession();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -12,7 +16,7 @@ export const Sidebar: React.FC = () => {
   );
 
   return (
-    <aside className="w-72 bg-[#f8fafc] border-r border-slate-200 flex flex-col justify-between h-full shrink-0 overflow-hidden font-sans text-xs">
+    <aside className="w-72 bg-[#f8fafc] dark:bg-[#0f172a] border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between h-full shrink-0 overflow-hidden font-sans text-xs transition-colors">
       
       {/* Scrollable Navigation & History Stream */}
       <div className="p-3.5 space-y-4 overflow-y-auto flex-1">
@@ -28,213 +32,97 @@ export const Sidebar: React.FC = () => {
 
         {/* Search Conversations Input */}
         <div className="relative">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 dark:text-slate-500 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search conversations..."
-            className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs"
+            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs"
           />
         </div>
 
-        {/* Conversation Sessions List Grouped by Section */}
-        <div className="space-y-4 pt-1">
-          {/* Section 1: Today */}
-          <div>
-            <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1.5 font-sans">
-              Today
-            </h4>
-            <div className="space-y-0.5">
-              {filteredSessions.slice(0, 3).map((s) => {
-                const isActive = activeSessionId === s.id;
-                return (
-                  <div
-                    key={s.id}
-                    onClick={() => setActiveSessionId(s.id)}
-                    className={`w-full relative px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-between group ${
-                      isActive
-                        ? 'bg-emerald-50 text-slate-900 font-bold border border-emerald-200/80 shadow-2xs'
-                        : 'text-slate-700 hover:bg-slate-200/50 hover:text-slate-900 font-medium'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <div className={`p-1 rounded ${isActive ? 'bg-emerald-100 text-emerald-800' : 'text-slate-500'}`}>
-                        <FileText className="w-3.5 h-3.5 shrink-0" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs leading-snug">{s.title}</p>
-                        <p className="text-[10px] font-mono text-slate-400 leading-tight">{s.time}</p>
-                      </div>
+        {/* Conversation Sessions Single Stream List */}
+        <div className="space-y-0.5 pt-1">
+          {filteredSessions.length === 0 ? (
+            <div className="text-center py-6 text-slate-400 dark:text-slate-500 text-xs">
+              No conversations found
+            </div>
+          ) : (
+            filteredSessions.map((s) => {
+              const isActive = activeSessionId === s.id;
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => setActiveSessionId(s.id)}
+                  className={`w-full relative px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-between group ${
+                    isActive
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-slate-900 dark:text-emerald-300 font-bold border border-emerald-200/80 dark:border-emerald-800 shadow-2xs'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100 font-medium'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className={`p-1 rounded ${isActive ? 'bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                      <FileText className="w-3.5 h-3.5 shrink-0" />
                     </div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveMenuId(activeMenuId === s.id ? null : s.id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-slate-900 transition-opacity"
-                    >
-                      <MoreHorizontal className="w-3.5 h-3.5" />
-                    </button>
-
-                    {activeMenuId === s.id && (
-                      <div className="absolute right-2 top-8 z-50 bg-white border border-slate-200 shadow-md rounded-lg p-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteSession(s.id);
-                            setActiveMenuId(null);
-                          }}
-                          className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded font-medium w-full text-left"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Delete
-                        </button>
-                      </div>
-                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs leading-snug">{s.title}</p>
+                      <p className="text-[10px] font-mono text-slate-400 dark:text-slate-500 leading-tight">{s.time}</p>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Section 2: Yesterday */}
-          {filteredSessions.length > 3 && (
-            <div>
-              <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1.5 font-sans">
-                Yesterday
-              </h4>
-              <div className="space-y-0.5">
-                {filteredSessions.slice(3, 5).map((s) => {
-                  const isActive = activeSessionId === s.id;
-                  return (
-                    <div
-                      key={s.id}
-                      onClick={() => setActiveSessionId(s.id)}
-                      className={`w-full relative px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-between group ${
-                        isActive
-                          ? 'bg-emerald-50 text-slate-900 font-bold border border-emerald-200/80 shadow-2xs'
-                          : 'text-slate-700 hover:bg-slate-200/50 hover:text-slate-900 font-medium'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <FileText className="w-3.5 h-3.5 shrink-0 text-slate-500" />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs leading-snug">{s.title}</p>
-                          <p className="text-[10px] font-mono text-slate-400 leading-tight">{s.time}</p>
-                        </div>
-                      </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMenuId(activeMenuId === s.id ? null : s.id);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-opacity"
+                  >
+                    <MoreHorizontal className="w-3.5 h-3.5" />
+                  </button>
 
+                  {activeMenuId === s.id && (
+                    <div className="absolute right-2 top-8 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md rounded-lg p-1">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setActiveMenuId(activeMenuId === s.id ? null : s.id);
+                          deleteSession(s.id);
+                          setActiveMenuId(null);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-slate-900 transition-opacity"
+                        className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded font-medium w-full text-left"
                       >
-                        <MoreHorizontal className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete
                       </button>
-
-                      {activeMenuId === s.id && (
-                        <div className="absolute right-2 top-8 z-50 bg-white border border-slate-200 shadow-md rounded-lg p-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteSession(s.id);
-                              setActiveMenuId(null);
-                            }}
-                            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded font-medium w-full text-left"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Delete
-                          </button>
-                        </div>
-                      )}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Section 3: Previous 7 Days */}
-          {filteredSessions.length > 5 && (
-            <div>
-              <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1.5 font-sans">
-                Previous 7 Days
-              </h4>
-              <div className="space-y-0.5">
-                {filteredSessions.slice(5).map((s) => {
-                  const isActive = activeSessionId === s.id;
-                  return (
-                    <div
-                      key={s.id}
-                      onClick={() => setActiveSessionId(s.id)}
-                      className={`w-full relative px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-between group ${
-                        isActive
-                          ? 'bg-emerald-50 text-slate-900 font-bold border border-emerald-200/80 shadow-2xs'
-                          : 'text-slate-700 hover:bg-slate-200/50 hover:text-slate-900 font-medium'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <FileText className="w-3.5 h-3.5 shrink-0 text-slate-500" />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs leading-snug">{s.title}</p>
-                          <p className="text-[10px] font-mono text-slate-400 leading-tight">{s.time}</p>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveMenuId(activeMenuId === s.id ? null : s.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-slate-900 transition-opacity"
-                      >
-                        <MoreHorizontal className="w-3.5 h-3.5" />
-                      </button>
-
-                      {activeMenuId === s.id && (
-                        <div className="absolute right-2 top-8 z-50 bg-white border border-slate-200 shadow-md rounded-lg p-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteSession(s.id);
-                              setActiveMenuId(null);
-                            }}
-                            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded font-medium w-full text-left"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
+
 
       </div>
 
       {/* Bottom Footer Links */}
-      <div className="p-3.5 border-t border-slate-200 space-y-1 bg-slate-100/60">
-        <button className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-slate-700 hover:bg-slate-200/60 transition-colors font-medium">
-          <HelpCircle className="w-4 h-4 text-slate-500" />
+      <div className="p-3.5 border-t border-slate-200 dark:border-slate-800 space-y-1 bg-slate-100/60 dark:bg-slate-900/60">
+        <button className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-colors font-medium">
+          <HelpCircle className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           <span>Help & Support</span>
         </button>
-        <button className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-slate-700 hover:bg-slate-200/60 transition-colors font-medium">
-          <Settings className="w-4 h-4 text-slate-500" />
+        <button 
+          onClick={onOpenSettings}
+          className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 transition-colors font-medium cursor-pointer"
+        >
+          <Settings className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           <span>Settings</span>
         </button>
       </div>
 
       {/* Bottom Graphic Card */}
       <div className="p-3">
-        <div className="relative rounded-xl overflow-hidden shadow-sm border border-slate-200 bg-gradient-to-br from-[#1b4332] to-[#0f2d21] p-4 text-white space-y-2">
+        <div className="relative rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-[#1b4332] to-[#0f2d21] p-4 text-white space-y-2">
           {/* Refinery Graphic Accent */}
           <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
           
@@ -258,3 +146,5 @@ export const Sidebar: React.FC = () => {
     </aside>
   );
 };
+
+

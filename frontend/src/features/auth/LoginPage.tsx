@@ -53,6 +53,38 @@ export const LoginPage: React.FC = () => {
           <p className="text-sm text-[#2d6a4f] font-medium mt-1">Air-Gapped • Secure • Private</p>
         </div>
 
+        {isLoginMode && (
+          <div className="mb-6 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
+            <div className="font-semibold mb-1 text-center text-emerald-900">Demo Accounts (Click to Autofill)</div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setUsername('operator');
+                  setPassword('operator123');
+                  setError(null);
+                }}
+                className="py-1.5 px-2 bg-white border border-emerald-300 rounded text-emerald-900 font-medium hover:bg-emerald-100 transition-colors text-center shadow-xs cursor-pointer"
+              >
+                <div>👤 Operator</div>
+                <div className="text-[10px] text-emerald-600 font-normal">operator / operator123</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUsername('admin');
+                  setPassword('admin123');
+                  setError(null);
+                }}
+                className="py-1.5 px-2 bg-white border border-emerald-300 rounded text-emerald-900 font-medium hover:bg-emerald-100 transition-colors text-center shadow-xs cursor-pointer"
+              >
+                <div>🛡️ Admin</div>
+                <div className="text-[10px] text-emerald-600 font-normal">admin / admin123</div>
+              </button>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             <div>

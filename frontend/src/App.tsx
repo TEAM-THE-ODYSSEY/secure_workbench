@@ -1,22 +1,23 @@
 import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { SessionProvider } from './context/SessionContext';
 import { AppShell } from './components/layout/AppShell';
 import { AiAssistantView } from './features/assistant/AiAssistantView';
 import { LoginPage } from './features/auth/LoginPage';
 import { AdminDashboard } from './features/admin/AdminDashboard';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const [adminViewMode, setAdminViewMode] = React.useState<'admin' | 'user'>('user');
 
   if (isLoading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#f8fafc]">
+      <div className="h-screen w-screen flex items-center justify-center bg-[#f8fafc] dark:bg-[#0b0f17]">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-[#1b4332]" />
-          <span className="text-sm text-slate-500 font-medium">Initializing Workbench...</span>
+          <Loader2 className="w-8 h-8 animate-spin text-[#1b4332] dark:text-emerald-400" />
+          <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">Initializing Workbench...</span>
         </div>
       </div>
     );
@@ -26,16 +27,22 @@ const AppContent: React.FC = () => {
     return <LoginPage />;
   }
 
-  // Admin role → Admin Dashboard (with option to switch to User Chat View)
-  if (user?.role === 'admin' && adminViewMode === 'admin') {
-    return <AdminDashboard onSwitchToUser={() => setAdminViewMode('user')} />;
+  // Admin role → Admin Dashboard with embedded Chat tab
+  if (user?.role === 'admin') {
+    return (
+      <ErrorBoundary>
+        <AdminDashboard />
+      </ErrorBoundary>
+    );
   }
 
-  // User role or Admin in User mode → User Side AI Assistant Chat Interface
+  // User role → User Side AI Assistant Chat Interface
   return (
     <SessionProvider>
-      <AppShell onSwitchToAdmin={user?.role === 'admin' ? () => setAdminViewMode('admin') : undefined}>
-        <AiAssistantView />
+      <AppShell>
+        <ErrorBoundary>
+          <AiAssistantView />
+        </ErrorBoundary>
       </AppShell>
     </SessionProvider>
   );
@@ -43,10 +50,15 @@ const AppContent: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 };
 
 export default App;
+

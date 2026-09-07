@@ -79,9 +79,13 @@ class RAGConfig(BaseSettings):
     ALLOWED_EXTENSIONS: str = ".pdf,.docx,.xlsx,.xls,.txt,.csv"
 
     # --- Reasoning Agent vLLM Settings ---
-    VLLM_API_BASE: str = "http://host.docker.internal:8080/v1"
-    PRIMARY_MODEL_NAME: str = "Qwen3-4B"
-    FALLBACK_MODEL_NAME: str = "Qwen3-1.7B"
+    VLLM_API_BASE: str = os.getenv("VLLM_API_BASE", "http://localhost:8001/v1")
+    PRIMARY_MODEL_NAME: str = os.getenv("PRIMARY_MODEL_NAME", "Qwen/Qwen2.5-1.5B-Instruct-AWQ")
+    FALLBACK_MODEL_NAME: str = os.getenv("FALLBACK_MODEL_NAME", "Qwen/Qwen2.5-1.5B-Instruct-AWQ")
+    DEVELOPMENT_LOW_VRAM: bool = True
+    PYTORCH_CUDA_ALLOC_CONF: str = "expandable_segments:True"
+    VLLM_GPU_MEMORY_UTILIZATION: float = 0.65
+    MAX_MODEL_LEN: int = 2048
 
     # --- Logging ---
     LOG_LEVEL: str = "INFO"

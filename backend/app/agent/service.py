@@ -4,7 +4,7 @@ Maintains 100% backward-compatible API entry points.
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from agent.models.schemas import AgentTaskResult, TaskRequest
 from agent.main_agent import main_agent, MainAgent
