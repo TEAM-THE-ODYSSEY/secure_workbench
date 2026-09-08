@@ -271,17 +271,23 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
         }
 
-        // Upload non-text files (images, PDFs, DOCX) to backend ingestion upload so OCR parser processes them
+        // Upload files (PDFs, PPTX, DOCX, images, TXT) to backend ingestion upload so parser processes them
         try {
           const formData = new FormData();
           formData.append('file', actualFile);
           formData.append('async_mode', 'false');
-          await apiFetch('/api/v1/documents/upload', {
+          const uploadRes = await apiFetch('/api/v1/documents/upload', {
             method: 'POST',
             body: formData,
           });
-        } catch {
-          // Ignore
+          if (uploadRes && uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            if (uploadData.extracted_text) {
+              fileExtractedText = uploadData.extracted_text;
+            }
+          }
+        } catch (err) {
+          console.warn('Document upload warning:', err);
         }
       }
 

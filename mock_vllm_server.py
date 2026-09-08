@@ -32,6 +32,7 @@ def list_models():
     return {
         "object": "list",
         "data": [
+            {"id": "Qwen/Qwen2.5-1.5B-Instruct-AWQ", "object": "model", "owned_by": "vllm"},
             {"id": "Qwen3-4B", "object": "model", "owned_by": "vllm"},
             {"id": "Qwen3-1.7B", "object": "model", "owned_by": "vllm"},
         ]
@@ -89,16 +90,26 @@ async def chat_completions(req: ChatCompletionRequest):
             ],
             "output_type": "PDF" if is_pdf else "TEXT"
         }
-    elif "finalreasoningoutput" in full_prompt_lower or "reasoning_output" in full_prompt_lower or '"confidence"' in full_prompt_lower:
+    elif "finalreasoningoutput" in full_prompt_lower or "reasoning_output" in full_prompt_lower or '"confidence"' in full_prompt_lower or "retrieved evidence:" in full_prompt_lower or "user request:" in full_prompt_lower:
         # Final Reasoning Output schema
         import re
-        is_doc = any(kw in user_prompt_lower for kw in ["explain", "doc", "pdf", "file", "report", "health", "safety", "award"])
-        greeting_pattern = r'\b(hi|hai|hello|hey|greetings|good morning|good afternoon|good evening|how are you|how are u|how do you do|who are you|what can you do)\b'
-        is_greeting = not is_doc and bool(re.search(greeting_pattern, user_prompt_lower))
+        greeting_words = ["hi", "hai", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "how are you", "who are you"]
+        user_text = user_prompt.replace("User Request:", "").split("Instructions:")[0].strip().lower()
+        is_greeting = any(user_text == w or user_text.startswith(w + " ") or user_text.startswith(w + "!") or user_text.startswith(w + ",") for w in greeting_words)
+
+        if is_greeting:
+            answer_str = "Hello! I am the MRPL Sovereign AI Assistant, operating locally and securely. I can assist you with refinery operations, P&ID topology, SOP instructions, equipment failure analysis, and document searches across CDU-1 and plant assets. How can I help you today?"
+        elif "retrieved evidence:" in full_prompt_lower:
+            ev_content = full_prompt_text.split("Retrieved Evidence:")[1].split("Instructions:")[0].strip()
+            answer_str = f"Based on the provided document evidence:\n\n{ev_content}"
+        else:
+            answer_str = ""
 
         is_explicit_doc_explain = any(kw in user_prompt_lower for kw in ["explain health", "explain doc", "summarize doc", "health and safety.docx", "safety award doc"])
         
-        if is_greeting or user_prompt_lower in ["hi", "hai", "hello", "hey", "who are you"]:
+        if answer_str:
+            pass
+        elif is_greeting or user_prompt_lower in ["hi", "hai", "hello", "hey", "who are you"]:
             answer_str = "Hello! I am the MRPL Sovereign AI Assistant, operating locally and securely. I can assist you with refinery operations, P&ID topology, SOP instructions, equipment failure analysis, and document searches across CDU-1 and plant assets. How can I help you today?"
         elif "2+2" in user_prompt_lower or "2 + 2" in user_prompt_lower:
             answer_str = "2 + 2 = 4."
@@ -209,10 +220,11 @@ async def chat_completions(req: ChatCompletionRequest):
                 "```\n"
             )
         else:
+            clean_q = user_prompt.replace("User Request:", "").split("Instructions:")[0].strip() or user_prompt
             answer_str = (
-                f"### 🔍 Analysis: **{user_prompt}**\n\n"
+                f"### 🔍 Analysis: **{clean_q}**\n\n"
                 f"I have processed your query through the MRPL Sovereign AI Assistant.\n"
-                f"- **Summary**: Query '{user_prompt}' processed successfully under local air-gapped security protocols.\n"
+                f"- **Summary**: Query '{clean_q}' processed successfully under local air-gapped security protocols.\n"
                 f"- **Recommendations**: For exact equipment parameters or compliance numbers, you can ingest specific SOPs or P&ID diagrams directly into the Knowledge Base."
             )
 
@@ -353,4 +365,6 @@ def set_failover(enable: bool = True):
 
 
 if __name__ == "__main__":
-    uvicorn.run("mock_vllm_server:app", host="0.0.0.0", port=8080)
+    import os
+    port = int(os.getenv("VLLM_PORT", "8001"))
+    uvicorn.run("mock_vllm_server:app", host="0.0.0.0", port=port)

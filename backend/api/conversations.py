@@ -306,11 +306,27 @@ def post_message(
 
         # 3. Build Task Request & Invoke Main Agent
         objective_str = req.text
+        extracted_txt = req.extracted_text
+
         if req.attached_file:
             fname = req.attached_file.get("name", "Document")
-            objective_str = f"Explain and analyze document '{fname}': {req.text}"
-            if req.extracted_text:
-                objective_str += f"\n\nDocument Text:\n{req.extracted_text[:2000]}"
+            if not extracted_txt:
+                try:
+                    from agent.agents.document_agent import _locate_file
+                    from rag.processing.parser import DocumentParser
+                    real_p = _locate_file(fname, req.attached_file.get("path"))
+                    if real_p and os.path.exists(real_p):
+                        with open(real_p, "rb") as f:
+                            parsed_doc = DocumentParser().parse_bytes(f.read(), fname)
+                            if parsed_doc.full_cleaned_text:
+                                extracted_txt = parsed_doc.full_cleaned_text
+                except Exception as loc_err:
+                    import logging
+                    logging.getLogger("api.conversations").warning(f"Could not extract attached file '{fname}': {loc_err}")
+
+            objective_str = f"Analyze and answer using document '{fname}': {req.text}"
+            if extracted_txt:
+                objective_str += f"\n\n--- Document Text ({fname}) ---\n{extracted_txt[:4000]}"
 
         task_id = f"task_{uuid.uuid4().hex[:12]}"
         task_req = TaskRequest(
@@ -318,7 +334,7 @@ def post_message(
             allow_fallback=True,
             scoped_file_id=req.attached_file.get("id") if req.attached_file else None,
             attached_file=req.attached_file,
-            extracted_text=req.extracted_text,
+            extracted_text=extracted_txt,
         )
 
         # Record AgentTask in DB

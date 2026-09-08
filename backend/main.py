@@ -132,14 +132,33 @@ async def top_level_upload_document(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="File is empty")
     try:
         from agent.gateway.input_gateway import InputGateway
+        from rag.processing.file_extractor import extract_text_from_file_bytes
+
         gateway = InputGateway()
         processed = gateway.process_upload(content_bytes=content_bytes, filename=filename)
+
+        # Extract full document text (PDF, PPTX, DOCX, TXT, CSV, Image OCR)
+        extracted_text = extract_text_from_file_bytes(content_bytes=content_bytes, filename=filename)
+
+        # Ingest into RAG pipeline for vector database search
+        try:
+            from rag.pipeline import RAGPipeline
+            pipeline = RAGPipeline()
+            pipeline.ingestion.ingest_bytes_sync(
+                content_bytes=content_bytes,
+                filename=filename,
+                source_id=processed.file_id,
+            )
+        except Exception as rag_err:
+            logging.getLogger("workbench.admin").warning(f"RAG ingestion warning for '{filename}': {rag_err}")
+
         return {
             "status": "success",
             "document_id": processed.file_id,
             "filename": filename,
             "file_size": processed.file_size_bytes,
             "storage_uri": processed.storage_uri,
+            "extracted_text": extracted_text,
         }
     except Exception as e:
         import logging
@@ -149,6 +168,7 @@ async def top_level_upload_document(file: UploadFile = File(...)):
             "document_id": f"doc_{uuid.uuid4().hex[:12]}",
             "filename": filename,
             "file_size": len(content_bytes),
+            "extracted_text": "",
         }
 
 

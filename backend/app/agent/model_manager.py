@@ -48,7 +48,16 @@ class ModelManager:
         timeout: float = 30.0,
         api_key: str = "EMPTY",
     ):
-        self.vllm_api_base = vllm_api_base or os.getenv("VLLM_API_BASE", getattr(config, "VLLM_API_BASE", "http://localhost:8001/v1"))
+        raw_vllm_url = (
+            vllm_api_base
+            or os.getenv("VLLM_BASE_URL")
+            or os.getenv("VLLM_API_BASE")
+            or getattr(config, "VLLM_API_BASE", "http://localhost:8001/v1")
+        )
+        if raw_vllm_url and not raw_vllm_url.endswith("/v1") and not raw_vllm_url.endswith("/v1/"):
+            raw_vllm_url = raw_vllm_url.rstrip("/") + "/v1"
+
+        self.vllm_api_base = raw_vllm_url
         self.primary_model = primary_model or os.getenv("PRIMARY_MODEL_NAME", getattr(config, "PRIMARY_MODEL_NAME", "Qwen/Qwen2.5-1.5B-Instruct-AWQ"))
         self.fallback_model = fallback_model or os.getenv("FALLBACK_MODEL_NAME", getattr(config, "FALLBACK_MODEL_NAME", "Qwen/Qwen2.5-1.5B-Instruct-AWQ"))
         self.timeout = timeout

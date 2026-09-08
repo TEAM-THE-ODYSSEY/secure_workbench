@@ -213,22 +213,28 @@ class MainOrchestrator:
         else:
             prompt = f"User Request: {context.query}\n\nInstructions: Provide a comprehensive and clear technical response."
 
-        try:
-            answer_text = self.model_manager.generate(
-                prompt=prompt,
-                system_prompt=SYSTEM_PROMPT,
-                task_id=task_id,
-            )
-            logger.info(f"[MODEL] model={active_model} generation_completed=true")
-        except Exception as ex:
-            logger.warning(f"[{task_id}] ModelManager.generate fallback: {ex}")
-            answer_text = ""
-            for res in agent_results:
-                if res.content:
-                    answer_text = (answer_text + "\n\n" + res.content).strip() if answer_text else res.content
-            if not answer_text:
-                answer_text = f"Analyzed query '{context.query}'."
-            logger.info(f"[MODEL] model={active_model} generation_completed=true")
+        # Check if GeneralAgent already produced a clean conversational/greeting response
+        gen_res = next((r for r in agent_results if r.agent == "general" and r.content), None)
+        if task_plan.intent == "GENERAL_KNOWLEDGE" and gen_res:
+            answer_text = gen_res.content
+            logger.info(f"[{task_id}] Using direct GeneralAgent response for query '{context.query}'.")
+        else:
+            try:
+                answer_text = self.model_manager.generate(
+                    prompt=prompt,
+                    system_prompt=SYSTEM_PROMPT,
+                    task_id=task_id,
+                )
+                logger.info(f"[MODEL] model={active_model} generation_completed=true")
+            except Exception as ex:
+                logger.warning(f"[{task_id}] ModelManager.generate fallback: {ex}")
+                answer_text = ""
+                for res in agent_results:
+                    if res.content:
+                        answer_text = (answer_text + "\n\n" + res.content).strip() if answer_text else res.content
+                if not answer_text:
+                    answer_text = f"Analyzed query '{context.query}'."
+                logger.info(f"[MODEL] model={active_model} generation_completed=true")
 
         latency_llm = (time.time() - t_llm0) * 1000.0
         total_latency = (time.time() - t_start) * 1000.0
